@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "InspireSpace",
+  "version": "0.1.0",
+  "identifier": "com.inspirespace.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "InspireSpace",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 760,
+        "minHeight": 520,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": false,
+        "backgroundColor": "#eceef1",
+        "dragDropEnabled": true,
+        "shadow": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' customprotocol: asset:; img-src 'self' asset: http://asset.localhost blob: data: https: http:; media-src 'self' asset: http://asset.localhost blob: data: https: http:; frame-src https: http: asset: customprotocol:; object-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost https: http:; font-src 'self' data:;",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "publisher": "InspireSpace",
+    "copyright": "Copyright © 2026 InspireSpace",
+    "category": "Productivity",
+    "shortDescription": "Local-first infinite canvas Markdown notes",
+    "longDescription": "InspireSpace is a private, offline-first infinite canvas for sticky notes, Markdown sheets, and visual references.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

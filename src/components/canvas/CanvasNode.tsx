@@ -398,8 +398,8 @@ function CanvasNodeComponent({
           onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); }}
           onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M7 4 Q11.5 7.6 16 12 Q11.5 16.4 7 20" />
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M36 12 A24 24 0 0 0 12 36" />
           </svg>
         </button>
       ) : null}

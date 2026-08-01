@@ -35,8 +35,13 @@ impl Database {
                 media_name TEXT,
                 parent_id TEXT,
                 stack_id TEXT,
+                stack_order INTEGER,
+                stack_anchor_x REAL,
+                stack_anchor_y REAL,
+                stack_title TEXT,
                 url TEXT,
                 plugin_kind TEXT,
+                folder_icon TEXT,
                 hotspots_json TEXT NOT NULL DEFAULT '[]',
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
@@ -57,8 +62,13 @@ impl Database {
         // 兼容旧版本数据库；SQLite 的 CREATE TABLE IF NOT EXISTS 不会补齐新列。
         self.ensure_column("parent_id", "TEXT")?;
         self.ensure_column("stack_id", "TEXT")?;
+        self.ensure_column("stack_order", "INTEGER")?;
+        self.ensure_column("stack_anchor_x", "REAL")?;
+        self.ensure_column("stack_anchor_y", "REAL")?;
+        self.ensure_column("stack_title", "TEXT")?;
         self.ensure_column("url", "TEXT")?;
         self.ensure_column("plugin_kind", "TEXT")?;
+        self.ensure_column("folder_icon", "TEXT")?;
         self.ensure_column("hotspots_json", "TEXT NOT NULL DEFAULT '[]'")?;
         Ok(())
     }
@@ -80,8 +90,8 @@ impl Database {
         let mut statement = self.connection.prepare(
             r#"
             SELECT id, node_type, x, y, width, height, z_index, color, title, content,
-                   file_path, media_path, media_name, parent_id, stack_id, url, plugin_kind, hotspots_json,
-                   created_at, updated_at
+                   file_path, media_path, media_name, parent_id, stack_id, stack_order, stack_anchor_x,
+                   stack_anchor_y, stack_title, url, plugin_kind, folder_icon, hotspots_json, created_at, updated_at
             FROM nodes
             ORDER BY z_index ASC, created_at ASC
             "#,
@@ -104,11 +114,16 @@ impl Database {
                 media_name: row.get(12)?,
                 parent_id: row.get(13)?,
                 stack_id: row.get(14)?,
-                url: row.get(15)?,
-                plugin_kind: row.get(16)?,
-                hotspots: serde_json::from_str(&row.get::<_, String>(17)?).unwrap_or_default(),
-                created_at: row.get(18)?,
-                updated_at: row.get(19)?,
+                stack_order: row.get(15)?,
+                stack_anchor_x: row.get(16)?,
+                stack_anchor_y: row.get(17)?,
+                stack_title: row.get(18)?,
+                url: row.get(19)?,
+                plugin_kind: row.get(20)?,
+                folder_icon: row.get(21)?,
+                hotspots: serde_json::from_str(&row.get::<_, String>(22)?).unwrap_or_default(),
+                created_at: row.get(23)?,
+                updated_at: row.get(24)?,
             })
         })?;
 
@@ -134,11 +149,12 @@ impl Database {
             r#"
             INSERT INTO nodes (
                 id, node_type, x, y, width, height, z_index, color, title, content,
-                file_path, media_path, media_name, parent_id, stack_id, url, plugin_kind, hotspots_json,
-                created_at, updated_at
+                file_path, media_path, media_name, parent_id, stack_id, stack_order, stack_anchor_x,
+                stack_anchor_y, stack_title, url, plugin_kind, folder_icon, hotspots_json, created_at, updated_at
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
-                ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20
+                ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
+                ?21, ?22, ?23, ?24, ?25
             )
             ON CONFLICT(id) DO UPDATE SET
                 node_type = excluded.node_type,
@@ -155,8 +171,13 @@ impl Database {
                 media_name = excluded.media_name,
                 parent_id = excluded.parent_id,
                 stack_id = excluded.stack_id,
+                stack_order = excluded.stack_order,
+                stack_anchor_x = excluded.stack_anchor_x,
+                stack_anchor_y = excluded.stack_anchor_y,
+                stack_title = excluded.stack_title,
                 url = excluded.url,
                 plugin_kind = excluded.plugin_kind,
+                folder_icon = excluded.folder_icon,
                 hotspots_json = excluded.hotspots_json,
                 updated_at = excluded.updated_at
             "#,
@@ -176,8 +197,13 @@ impl Database {
                 node.media_name,
                 node.parent_id,
                 node.stack_id,
+                node.stack_order,
+                node.stack_anchor_x,
+                node.stack_anchor_y,
+                node.stack_title,
                 node.url,
                 node.plugin_kind,
+                node.folder_icon,
                 serde_json::to_string(&node.hotspots)?,
                 node.created_at,
                 node.updated_at,

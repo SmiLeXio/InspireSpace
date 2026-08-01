@@ -17,6 +17,16 @@ export interface ImageHotspot {
   description: string;
 }
 
+export type FolderIconKey =
+  | "folder"
+  | "star"
+  | "image"
+  | "book"
+  | "music"
+  | "briefcase"
+  | "archive"
+  | "sparkles";
+
 export interface CanvasNode {
   id: string;
   type: CanvasNodeType;
@@ -33,8 +43,13 @@ export interface CanvasNode {
   mediaName: string | null;
   parentId: string | null;
   stackId: string | null;
+  stackOrder: number | null;
+  stackAnchorX: number | null;
+  stackAnchorY: number | null;
+  stackTitle: string | null;
   url: string | null;
   pluginKind: string | null;
+  folderIcon: FolderIconKey | null;
   hotspots: ImageHotspot[];
   createdAt: number;
   updatedAt: number;

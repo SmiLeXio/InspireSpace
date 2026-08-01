@@ -55,9 +55,20 @@ const mediaFilters: Record<ImportKind, { name: string; extensions: string[]; acc
   },
   document: {
     name: "文档",
-    extensions: ["md", "txt", "rtf", "pdf"],
-    accept: ".md,.txt,.rtf,.pdf,text/plain,text/markdown,application/pdf",
+    extensions: ["md", "txt", "rtf", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "json"],
+    accept: ".md,.txt,.rtf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.json,text/plain,text/markdown,application/pdf",
   },
+};
+
+const browserFileAsset = async (file: File): Promise<MediaAsset> => {
+  const isText = ["text/plain", "text/markdown", "text/rtf", "application/rtf", "application/json", "text/csv"].includes(file.type)
+    || /\.(md|txt|rtf|json|csv)$/i.test(file.name);
+  return {
+    relativePath: URL.createObjectURL(file),
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    content: isText ? await file.text() : null,
+  };
 };
 
 const chooseBrowserMedia = (kind: ImportKind) =>
@@ -71,14 +82,7 @@ const chooseBrowserMedia = (kind: ImportKind) =>
         resolve(null);
         return;
       }
-      const isText = ["text/plain", "text/markdown", "text/rtf", "application/rtf"].includes(file.type)
-        || /\.(md|txt|rtf)$/i.test(file.name);
-      resolve({
-        relativePath: URL.createObjectURL(file),
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        content: isText ? await file.text() : null,
-      });
+      resolve(await browserFileAsset(file));
     };
     input.oncancel = () => resolve(null);
     input.click();
@@ -158,6 +162,12 @@ export const backend = {
     const snapshot = loadBrowserSnapshot();
     snapshot.viewport = viewport;
     saveBrowserSnapshot(snapshot);
+  },
+
+  async importExternalMedia(source: string | File, kind: ImportKind): Promise<MediaAsset> {
+    if (source instanceof File) return browserFileAsset(source);
+    if (!isTauriRuntime()) throw new Error("浏览器模式无法读取本地文件路径");
+    return invoke<MediaAsset>("import_media", { sourcePath: source, kind });
   },
 
   async chooseAndImportMedia(kind: ImportKind): Promise<MediaAsset | null> {

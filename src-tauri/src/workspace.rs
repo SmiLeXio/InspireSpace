@@ -39,9 +39,19 @@ pub struct CanvasNode {
     #[serde(default)]
     pub stack_id: Option<String>,
     #[serde(default)]
+    pub stack_order: Option<i64>,
+    #[serde(default)]
+    pub stack_anchor_x: Option<f64>,
+    #[serde(default)]
+    pub stack_anchor_y: Option<f64>,
+    #[serde(default)]
+    pub stack_title: Option<String>,
+    #[serde(default)]
     pub url: Option<String>,
     #[serde(default)]
     pub plugin_kind: Option<String>,
+    #[serde(default)]
+    pub folder_icon: Option<String>,
     #[serde(default)]
     pub hotspots: Vec<ImageHotspot>,
     pub created_at: i64,
@@ -219,7 +229,20 @@ fn validate_extension(kind: &str, extension: &str) -> anyhow::Result<()> {
                 | "hdr"
         ),
         "video" => matches!(extension, "mp4" | "mov" | "gif" | "webp" | "webm" | "avi"),
-        "document" => matches!(extension, "md" | "txt" | "rtf" | "pdf"),
+        "document" => matches!(
+            extension,
+            "md" | "txt"
+                | "rtf"
+                | "pdf"
+                | "doc"
+                | "docx"
+                | "xls"
+                | "xlsx"
+                | "ppt"
+                | "pptx"
+                | "csv"
+                | "json"
+        ),
         _ => false,
     };
     if supported {
@@ -251,6 +274,14 @@ fn mime_for_extension(extension: &str) -> &'static str {
         "txt" => "text/plain",
         "rtf" => "application/rtf",
         "pdf" => "application/pdf",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xls" => "application/vnd.ms-excel",
+        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "ppt" => "application/vnd.ms-powerpoint",
+        "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "csv" => "text/csv",
+        "json" => "application/json",
         _ => "application/octet-stream",
     }
 }

@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { backend } from "../lib/backend";
+import { compactStackLayout } from "../lib/stackLayout";
 import type {
   AppScreen,
   CanvasNode,
   CanvasNodeType,
+  FolderIconKey,
   ImageHotspot,
   ImportKind,
   RecentProject,
@@ -32,6 +34,7 @@ interface CanvasStore {
   loading: boolean;
   saveState: SaveState;
   error: string | null;
+  stackNotice: { id: number; message: string } | null;
   historyPast: HistoryEntry[];
   historyFuture: HistoryEntry[];
   openProject: (path: string, name?: string) => Promise<void>;
@@ -40,13 +43,15 @@ interface CanvasStore {
   openDemo: () => Promise<void>;
   leaveProject: () => void;
   createNode: (type: CanvasNodeType, point?: { x: number; y: number }, extras?: Partial<CanvasNode>) => CanvasNode;
-  createFolder: (childIds?: string[], point?: { x: number; y: number }) => CanvasNode;
+  createFolder: (childIds?: string[], point?: { x: number; y: number }, options?: { title?: string; color?: string; folderIcon?: FolderIconKey }) => CanvasNode;
   importMedia: (kind: ImportKind, point?: { x: number; y: number }) => Promise<CanvasNode | null>;
+  importExternalFiles: (sources: Array<string | File>, point: { x: number; y: number }) => Promise<CanvasNode[]>;
   createFromText: (text: string, point?: { x: number; y: number }) => CanvasNode | null;
   updateNode: (id: string, patch: Partial<CanvasNode>, persist?: boolean) => void;
   previewNodes: (patches: Array<{ id: string; patch: Partial<CanvasNode> }>) => void;
   commitLayout: (before: CanvasNode[]) => void;
   finishDrag: (before: CanvasNode[], patches: Array<{ id: string; patch: Partial<CanvasNode> }>, dropTargetId?: string | null) => void;
+  extractNodeFromFolder: (id: string, point: { x: number; y: number }) => void;
   updateNodeLayout: (id: string, patch: Partial<CanvasNode>) => void;
   selectOnly: (id: string | null) => void;
   toggleSelection: (id: string) => void;
@@ -60,11 +65,13 @@ interface CanvasStore {
   stackSelected: () => void;
   unstack: (stackId: string) => void;
   addImageHotspot: (nodeId: string, hotspot: Omit<ImageHotspot, "id">) => void;
+  updateImageHotspot: (nodeId: string, hotspotId: string, patch: Partial<Pick<ImageHotspot, "label" | "description">>) => void;
   removeImageHotspot: (nodeId: string, hotspotId: string) => void;
   setViewport: (viewport: Viewport, persist?: boolean) => void;
   undo: () => void;
   redo: () => void;
   setError: (error: string | null) => void;
+  clearStackNotice: () => void;
 }
 
 const RECENTS_KEY = "inspirespace-recent-projects-v2";
@@ -76,7 +83,7 @@ let savedStateTimer: ReturnType<typeof setTimeout> | undefined;
 const uniqueId = () =>
   globalThis.crypto?.randomUUID?.() ?? `node-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const now = () => Date.now();
-const cloneNodes = (nodes: CanvasNode[]) => nodes.map((node) => ({ ...node }));
+const cloneNodes = (nodes: CanvasNode[]) => nodes.map((node) => ({ ...node, hotspots: node.hotspots.map((hotspot) => ({ ...hotspot })) }));
 
 const projectNameFromPath = (path: string) =>
   path.split(/[\\/]/).filter(Boolean).at(-1) || "未命名项目";
@@ -118,8 +125,13 @@ const normalizeNode = (node: CanvasNode): CanvasNode => ({
   type: node.type === "sheet" ? "note" : node.type,
   parentId: node.parentId ?? null,
   stackId: node.stackId ?? null,
+  stackOrder: node.stackOrder ?? null,
+  stackAnchorX: node.stackAnchorX ?? null,
+  stackAnchorY: node.stackAnchorY ?? null,
+  stackTitle: node.stackTitle ?? null,
   url: node.url ?? null,
   pluginKind: node.pluginKind ?? null,
+  folderIcon: node.folderIcon ?? (node.type === "folder" ? "folder" : null),
   hotspots: node.hotspots ?? [],
 });
 
@@ -129,19 +141,19 @@ const starterNodes = (): CanvasNode[] => {
     {
       id: uniqueId(), type: "sticky", x: -430, y: -180, width: 300, height: 220, zIndex: 1,
       color: STICKY_COLORS[1].value, title: "", content: "今天\n\n收集一个闪念，拖动它，看看它会和什么产生连接。",
-      filePath: null, mediaPath: null, mediaName: null, parentId: null, stackId: null, url: null, pluginKind: null, hotspots: [],
+      filePath: null, mediaPath: null, mediaName: null, parentId: null, stackId: null, stackOrder: null, stackAnchorX: null, stackAnchorY: null, stackTitle: null, url: null, pluginKind: null, folderIcon: null, hotspots: [],
       createdAt: timestamp, updatedAt: timestamp,
     },
     {
       id: uniqueId(), type: "note", x: -70, y: -245, width: 390, height: 430, zIndex: 2,
       color: "#fbfbfa", title: "工作笔记", content: "想法并不会按顺序出现。\n\n把有用的片段留在画布上，移动、组合，然后让结构自然浮现。",
-      filePath: null, mediaPath: null, mediaName: null, parentId: null, stackId: null, url: null, pluginKind: null, hotspots: [],
+      filePath: null, mediaPath: null, mediaName: null, parentId: null, stackId: null, stackOrder: null, stackAnchorX: null, stackAnchorY: null, stackTitle: null, url: null, pluginKind: null, folderIcon: null, hotspots: [],
       createdAt: timestamp + 1, updatedAt: timestamp + 1,
     },
     {
       id: uniqueId(), type: "plugin", x: 390, y: -70, width: 300, height: 250, zIndex: 3,
       color: "#252726", title: "本地时间", content: "", filePath: null, mediaPath: null, mediaName: null,
-      parentId: null, stackId: null, url: null, pluginKind: "clock", hotspots: [], createdAt: timestamp + 2, updatedAt: timestamp + 2,
+      parentId: null, stackId: null, stackOrder: null, stackAnchorX: null, stackAnchorY: null, stackTitle: null, url: null, pluginKind: "clock", folderIcon: null, hotspots: [], createdAt: timestamp + 2, updatedAt: timestamp + 2,
     },
   ];
 };
@@ -159,9 +171,62 @@ const nodeDefaults: Record<CanvasNodeType, { width: number; height: number; titl
 };
 
 const historySignature = (nodes: CanvasNode[]) =>
-  JSON.stringify(nodes.map(({ id, type, x, y, width, height, zIndex, parentId, stackId }) => ({
-    id, type, x, y, width, height, zIndex, parentId, stackId,
+  JSON.stringify(nodes.map(({ id, type, x, y, width, height, zIndex, color, title, parentId, stackId, stackOrder, stackAnchorX, stackAnchorY, stackTitle, folderIcon, hotspots }) => ({
+    id, type, x, y, width, height, zIndex, color, title, parentId, stackId, stackOrder, stackAnchorX, stackAnchorY, stackTitle, folderIcon, hotspots,
   })));
+
+const clearStackFields = (node: CanvasNode): CanvasNode => ({
+  ...node,
+  stackId: null,
+  stackOrder: null,
+  stackAnchorX: null,
+  stackAnchorY: null,
+  stackTitle: null,
+  updatedAt: now(),
+});
+
+
+const compactStackMembers = (nodes: CanvasNode[], stackId: string): CanvasNode[] => {
+  const members = nodes
+    .filter((node) => !node.parentId && node.stackId === stackId)
+    .sort((a, b) => (a.stackOrder ?? a.zIndex) - (b.stackOrder ?? b.zIndex));
+  if (!members.length) return nodes;
+  const reference = members.find((node) => node.stackAnchorX != null && node.stackAnchorY != null) ?? members.at(-1)!;
+  const anchorX = reference.stackAnchorX ?? reference.x;
+  const anchorY = reference.stackAnchorY ?? reference.y;
+  const title = reference.stackTitle || "未命名堆叠";
+  if (members.length === 1) {
+    return nodes.map((node) => node.id === members[0].id
+      ? clearStackFields({ ...node, x: anchorX, y: anchorY })
+      : node);
+  }
+  const orderById = new Map(members.map((node, order) => [node.id, order]));
+  const compactLayout = compactStackLayout(members, anchorX, anchorY);
+  return nodes.map((node) => {
+    const order = orderById.get(node.id);
+    if (order == null) return node;
+    const position = compactLayout.positions.get(node.id)!;
+    return {
+      ...node,
+      ...position,
+      stackId,
+      stackOrder: order,
+      stackAnchorX: anchorX,
+      stackAnchorY: anchorY,
+      stackTitle: title,
+      updatedAt: now(),
+    };
+  });
+};
+
+const repairStacks = (nodes: CanvasNode[]) => {
+  let repaired = nodes;
+  const stackIds = Array.from(new Set(nodes.flatMap((node) => node.stackId ? [node.stackId] : [])));
+  for (const stackId of stackIds) repaired = compactStackMembers(repaired, stackId);
+  return repaired;
+};
+
+const normalizeWorkspaceNodes = (nodes: CanvasNode[]) => repairStacks(nodes.map(normalizeNode));
 
 const markSaved = (set: (patch: Partial<CanvasStore>) => void) => {
   set({ saveState: "saved" });
@@ -232,6 +297,11 @@ const mergeHistoryTarget = (target: CanvasNode[], current: CanvasNode[]) => {
       zIndex: targetNode.zIndex,
       parentId: targetNode.parentId,
       stackId: targetNode.stackId,
+      stackOrder: targetNode.stackOrder,
+      stackAnchorX: targetNode.stackAnchorX,
+      stackAnchorY: targetNode.stackAnchorY,
+      stackTitle: targetNode.stackTitle,
+      hotspots: targetNode.hotspots.map((hotspot) => ({ ...hotspot })),
       updatedAt: now(),
     };
   });
@@ -279,8 +349,13 @@ const createBaseNode = (
     mediaName: extras.mediaName ?? null,
     parentId: extras.parentId ?? null,
     stackId: extras.stackId ?? null,
+    stackOrder: extras.stackOrder ?? null,
+    stackAnchorX: extras.stackAnchorX ?? null,
+    stackAnchorY: extras.stackAnchorY ?? null,
+    stackTitle: extras.stackTitle ?? null,
     url: extras.url ?? null,
     pluginKind: extras.pluginKind ?? null,
+    folderIcon: extras.folderIcon ?? (type === "folder" ? "folder" : null),
     hotspots: extras.hotspots ?? [],
     createdAt: extras.createdAt ?? timestamp,
     updatedAt: timestamp,
@@ -288,6 +363,17 @@ const createBaseNode = (
 };
 
 const mediaNodeType = (kind: ImportKind): CanvasNodeType => kind;
+
+const externalImportKind = (source: string | File): ImportKind | null => {
+  const name = typeof source === "string" ? source : source.name;
+  const mime = typeof source === "string" ? "" : source.type.toLowerCase();
+  const extension = name.split(/[\\/]/).at(-1)?.split(".").at(-1)?.toLowerCase() || "";
+  if (mime.startsWith("video/") || ["mp4", "mov", "webm", "avi", "m4v"].includes(extension)) return "video";
+  if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "tiff", "tif", "bmp", "ico", "icns", "heic", "raw", "exr", "hdr"].includes(extension)) return "image";
+  if (["md", "txt", "rtf", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "json"].includes(extension)
+    || mime.startsWith("text/") || mime === "application/pdf" || mime.includes("officedocument")) return "document";
+  return null;
+};
 
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
   screen: "welcome",
@@ -303,6 +389,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   loading: false,
   saveState: "idle",
   error: null,
+  stackNotice: null,
   historyPast: [],
   historyFuture: [],
 
@@ -313,7 +400,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       const projectName = name || projectNameFromPath(snapshot.rootPath);
       set({
         screen: "canvas", workspaceRoot: snapshot.rootPath, projectName,
-        nodes: snapshot.nodes.map(normalizeNode), viewport: snapshot.viewport ?? DEFAULT_VIEWPORT,
+        nodes: normalizeWorkspaceNodes(snapshot.nodes), viewport: snapshot.viewport ?? DEFAULT_VIEWPORT,
         selectedIds: [], editingId: null, openFolderId: null, hydrated: true, loading: false,
         historyPast: [], historyFuture: [], recentProjects: rememberProject({ name: projectName, path: snapshot.rootPath, openedAt: now() }),
       });
@@ -328,7 +415,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       const snapshot = await backend.createWorkspace(parentPath, name);
       set({
         screen: "canvas", workspaceRoot: snapshot.rootPath, projectName: name,
-        nodes: snapshot.nodes.map(normalizeNode), viewport: snapshot.viewport ?? DEFAULT_VIEWPORT,
+        nodes: normalizeWorkspaceNodes(snapshot.nodes), viewport: snapshot.viewport ?? DEFAULT_VIEWPORT,
         selectedIds: [], editingId: null, openFolderId: null, hydrated: true, loading: false,
         historyPast: [], historyFuture: [], recentProjects: rememberProject({ name, path: snapshot.rootPath, openedAt: now() }),
       });
@@ -344,7 +431,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       const projectName = name || projectNameFromPath(snapshot.rootPath);
       set({
         screen: "canvas", workspaceRoot: snapshot.rootPath, projectName,
-        nodes: snapshot.nodes.map(normalizeNode), viewport: snapshot.viewport ?? DEFAULT_VIEWPORT,
+        nodes: normalizeWorkspaceNodes(snapshot.nodes), viewport: snapshot.viewport ?? DEFAULT_VIEWPORT,
         selectedIds: [], editingId: null, openFolderId: null, hydrated: true, loading: false,
         historyPast: [], historyFuture: [], recentProjects: rememberProject({ name: projectName, path: snapshot.rootPath, openedAt: now() }),
       });
@@ -357,7 +444,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const snapshot = await backend.openDemoWorkspace();
-      const nodes = snapshot.nodes.length ? snapshot.nodes.map(normalizeNode) : starterNodes();
+      const nodes = snapshot.nodes.length ? normalizeWorkspaceNodes(snapshot.nodes) : starterNodes();
       set({
         screen: "canvas", workspaceRoot: snapshot.rootPath, projectName: "演练",
         nodes, viewport: snapshot.nodes.length ? snapshot.viewport : { x: window.innerWidth / 2, y: window.innerHeight / 2, scale: 0.92 },
@@ -386,7 +473,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     return node;
   },
 
-  createFolder: (childIds = get().selectedIds, point) => {
+  createFolder: (childIds = get().selectedIds, point, options = {}) => {
     const state = get();
     const validChildren = state.nodes.filter((node) => childIds.includes(node.id) && !node.parentId);
     const before = cloneNodes(state.nodes);
@@ -399,10 +486,13 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       folderPoint = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
     }
     const folder = createBaseNode("folder", state.nodes, state.viewport, folderPoint, {
+      title: options.title?.trim() || "新建文件夹",
+      color: options.color || "#d7c7a5",
+      folderIcon: options.folderIcon || "folder",
       content: validChildren.length ? `${validChildren.length} 个项目` : "空文件夹",
     });
     const nextNodes = state.nodes.map((node) => validChildren.some((child) => child.id === node.id)
-      ? { ...node, parentId: folder.id, stackId: null, updatedAt: now() }
+      ? clearStackFields({ ...node, parentId: folder.id })
       : node);
     const after = [...nextNodes, folder];
     set({ nodes: after, selectedIds: [folder.id] });
@@ -426,6 +516,38 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       set({ error: error instanceof Error ? error.message : String(error) });
       return null;
     }
+  },
+
+  importExternalFiles: async (sources, point) => {
+    const imported: CanvasNode[] = [];
+    const unsupported: string[] = [];
+    for (let index = 0; index < sources.length; index += 1) {
+      const source = sources[index];
+      const kind = externalImportKind(source);
+      const name = typeof source === "string" ? source.split(/[\\/]/).at(-1) || source : source.name;
+      if (!kind) {
+        unsupported.push(name);
+        continue;
+      }
+      try {
+        const asset = await backend.importExternalMedia(source, kind);
+        const column = index % 4;
+        const row = Math.floor(index / 4);
+        imported.push(get().createNode(mediaNodeType(kind), {
+          x: point.x + column * 42,
+          y: point.y + row * 34,
+        }, {
+          title: asset.fileName,
+          content: asset.content ?? asset.mimeType,
+          mediaPath: asset.relativePath,
+          mediaName: asset.fileName,
+        }));
+      } catch (error) {
+        unsupported.push(`${name}：${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    if (unsupported.length) set({ error: `以下内容未能载入：${unsupported.join("、")}` });
+    return imported;
   },
 
   createFromText: (rawText, point) => {
@@ -469,36 +591,123 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   finishDrag: (before, patches, dropTargetId = null) => {
+    const state = get();
     const patchMap = new Map(patches.map(({ id, patch }) => [id, patch]));
     const movingIds = new Set(patches.map(({ id }) => id));
-    let after = get().nodes.map((item) => patchMap.has(item.id)
+    let after = state.nodes.map((item) => patchMap.has(item.id)
       ? { ...item, ...patchMap.get(item.id), updatedAt: now() }
       : item);
+    let notice: string | null = null;
 
-    if (movingIds.size === 1) {
+    if (movingIds.size > 1) {
+      const movingBefore = before.filter((node) => movingIds.has(node.id));
+      const stackIds = new Set(movingBefore.map((node) => node.stackId).filter(Boolean));
+      if (stackIds.size === 1 && movingBefore.every((node) => node.stackId)) {
+        const firstBefore = movingBefore[0];
+        const firstAfter = after.find((node) => node.id === firstBefore.id)!;
+        const dx = firstAfter.x - firstBefore.x;
+        const dy = firstAfter.y - firstBefore.y;
+        const stackId = firstBefore.stackId!;
+        after = after.map((node) => node.stackId === stackId ? {
+          ...node,
+          stackAnchorX: (node.stackAnchorX ?? firstBefore.x) + dx,
+          stackAnchorY: (node.stackAnchorY ?? firstBefore.y) + dy,
+          updatedAt: now(),
+        } : node);
+      }
+    } else if (movingIds.size === 1) {
       const movingId = [...movingIds][0];
+      const movingBefore = before.find((item) => item.id === movingId);
       const moving = after.find((item) => item.id === movingId);
-      const previousStackId = moving?.stackId;
-      const target = dropTargetId ? after.find((item) => item.id === dropTargetId && item.type === "folder") : undefined;
+      const target = dropTargetId ? after.find((item) => item.id === dropTargetId && !item.parentId) : undefined;
+      const previousStackId = movingBefore?.stackId ?? null;
 
-      if (moving && target) {
+      if (moving && target?.type === "folder") {
         after = after.map((item) => item.id === movingId
-          ? { ...item, parentId: target.id, stackId: null, updatedAt: now() }
+          ? clearStackFields({ ...item, parentId: target.id })
           : item);
-      } else if (moving?.stackId) {
-        // 普通卡片不再作为堆叠投放目标；单张卡片拖到空白处即从原堆叠取出。
-        after = after.map((item) => item.id === movingId ? { ...item, stackId: null, updatedAt: now() } : item);
+      } else if (moving && previousStackId) {
+        after = after.map((item) => item.id === movingId ? clearStackFields({ ...item, parentId: null }) : item);
+      } else if (moving && target?.stackId) {
+        const members = after
+          .filter((item) => item.stackId === target.stackId && !item.parentId)
+          .sort((a, b) => (a.stackOrder ?? a.zIndex) - (b.stackOrder ?? b.zIndex));
+        const reference = members[0] ?? target;
+        const stackId = target.stackId;
+        const order = members.length;
+        after = after.map((item) => item.id === movingId ? {
+          ...item,
+          parentId: null,
+          stackId,
+          stackOrder: order,
+          stackAnchorX: reference.stackAnchorX ?? target.x,
+          stackAnchorY: reference.stackAnchorY ?? target.y,
+          stackTitle: reference.stackTitle || "未命名堆叠",
+          zIndex: nextZIndex(after),
+          updatedAt: now(),
+        } : item);
+        notice = "已加入堆叠";
+      } else if (moving && target && target.id !== moving.id && !target.stackId) {
+        const stackId = uniqueId();
+        const anchorX = target.x;
+        const anchorY = target.y;
+        const firstZ = nextZIndex(after);
+        after = after.map((item) => {
+          if (item.id === target.id) return {
+            ...item,
+            stackId,
+            stackOrder: 0,
+            stackAnchorX: anchorX,
+            stackAnchorY: anchorY,
+            stackTitle: "未命名堆叠",
+            zIndex: firstZ,
+            updatedAt: now(),
+          };
+          if (item.id === movingId) return {
+            ...item,
+            parentId: null,
+            stackId,
+            stackOrder: 1,
+            stackAnchorX: anchorX,
+            stackAnchorY: anchorY,
+            stackTitle: "未命名堆叠",
+            zIndex: firstZ + 1,
+            updatedAt: now(),
+          };
+          return item;
+        });
+        notice = "已创建堆叠";
       }
 
-      if (previousStackId) {
-        const remaining = after.filter((item) => item.stackId === previousStackId);
-        if (remaining.length < 2) {
-          after = after.map((item) => item.stackId === previousStackId ? { ...item, stackId: null, updatedAt: now() } : item);
-        }
-      }
+      if (previousStackId) after = compactStackMembers(after, previousStackId);
+      const currentStackId = after.find((item) => item.id === movingId)?.stackId;
+      if (currentStackId) after = compactStackMembers(after, currentStackId);
     }
 
-    set({ nodes: after, selectedIds: [...movingIds] });
+    after = repairStacks(after);
+    set({
+      nodes: after,
+      selectedIds: [...movingIds],
+      stackNotice: notice ? { id: now(), message: notice } : state.stackNotice,
+    });
+    if (addHistory(before, after, set, get)) syncHistoryChange(before, after, set);
+  },
+
+  extractNodeFromFolder: (id, point) => {
+    const state = get();
+    const child = state.nodes.find((node) => node.id === id);
+    if (!child?.parentId) return;
+    const before = cloneNodes(state.nodes);
+    const after = repairStacks(state.nodes.map((node) => node.id === id
+      ? clearStackFields({
+        ...node,
+        parentId: null,
+        x: point.x,
+        y: point.y,
+        zIndex: nextZIndex(state.nodes),
+      })
+      : node));
+    set({ nodes: after, selectedIds: [id], openFolderId: null });
     if (addHistory(before, after, set, get)) syncHistoryChange(before, after, set);
   },
 
@@ -528,7 +737,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     const before = cloneNodes(get().nodes);
     const remove = new Set(ids);
     for (const node of before) if (node.parentId && remove.has(node.parentId)) remove.add(node.id);
-    const after = before.filter((node) => !remove.has(node.id));
+    const after = repairStacks(before.filter((node) => !remove.has(node.id)));
     set({ nodes: after, selectedIds: [], editingId: null, openFolderId: null });
     addHistory(before, after, set, get);
     syncHistoryChange(before, after, set);
@@ -538,7 +747,9 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
   stackSelected: () => {
     const state = get();
-    const selected = state.nodes.filter((node) => state.selectedIds.includes(node.id));
+    const selected = state.nodes
+      .filter((node) => state.selectedIds.includes(node.id) && !node.parentId && !node.stackId)
+      .sort((a, b) => a.zIndex - b.zIndex);
     if (selected.length < 2) return;
     const before = cloneNodes(state.nodes);
     const stackId = uniqueId();
@@ -546,27 +757,43 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     const anchorY = Math.min(...selected.map((node) => node.y));
     const firstZ = nextZIndex(state.nodes);
     const selectedSet = new Set(selected.map((node) => node.id));
-    const after = state.nodes.map((node) => {
-      const index = selected.findIndex((item) => item.id === node.id);
+    let after = state.nodes.map((node) => {
+      const order = selected.findIndex((item) => item.id === node.id);
       if (!selectedSet.has(node.id)) return node;
-      return { ...node, x: anchorX + index * 7, y: anchorY + index * 6, zIndex: firstZ + index, stackId, updatedAt: now() };
+      return {
+        ...node,
+        stackId,
+        stackOrder: order,
+        stackAnchorX: anchorX,
+        stackAnchorY: anchorY,
+        stackTitle: "未命名堆叠",
+        zIndex: firstZ + order,
+        updatedAt: now(),
+      };
     });
-    set({ nodes: after, selectedIds: selected.map((node) => node.id) });
+    after = compactStackMembers(after, stackId);
+    set({
+      nodes: after,
+      selectedIds: selected.map((node) => node.id),
+      stackNotice: { id: now(), message: "已创建堆叠" },
+    });
     addHistory(before, after, set, get);
     syncHistoryChange(before, after, set);
   },
 
   unstack: (stackId) => {
     const state = get();
-    const stacked = state.nodes.filter((node) => node.stackId === stackId).sort((a, b) => a.zIndex - b.zIndex);
+    const stacked = state.nodes
+      .filter((node) => node.stackId === stackId)
+      .sort((a, b) => (a.stackOrder ?? a.zIndex) - (b.stackOrder ?? b.zIndex));
     if (stacked.length < 2) return;
     const before = cloneNodes(state.nodes);
-    const startX = Math.min(...stacked.map((node) => node.x));
-    const startY = Math.min(...stacked.map((node) => node.y));
+    const anchorX = stacked[0].stackAnchorX ?? stacked.at(-1)!.x;
+    const anchorY = stacked[0].stackAnchorY ?? stacked.at(-1)!.y;
     const after = state.nodes.map((node) => {
       const index = stacked.findIndex((item) => item.id === node.id);
       if (index === -1) return node;
-      return { ...node, x: startX + index * 46, y: startY + index * 26, stackId: null, updatedAt: now() };
+      return clearStackFields({ ...node, x: anchorX + index * 46, y: anchorY + index * 26 });
     });
     set({ nodes: after, selectedIds: [stacked.at(-1)!.id] });
     addHistory(before, after, set, get);
@@ -574,15 +801,42 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   addImageHotspot: (nodeId, hotspot) => {
-    const node = get().nodes.find((item) => item.id === nodeId && item.type === "image");
+    const state = get();
+    const node = state.nodes.find((item) => item.id === nodeId && item.type === "image");
     if (!node) return;
-    get().updateNode(nodeId, { hotspots: [...node.hotspots, { ...hotspot, id: uniqueId() }] });
+    const before = cloneNodes(state.nodes);
+    const after = state.nodes.map((item) => item.id === nodeId
+      ? { ...item, hotspots: [...item.hotspots, { ...hotspot, id: uniqueId() }], updatedAt: now() }
+      : item);
+    set({ nodes: after });
+    addHistory(before, after, set, get);
+    syncHistoryChange(before, after, set);
+  },
+
+  updateImageHotspot: (nodeId, hotspotId, patch) => {
+    const state = get();
+    const node = state.nodes.find((item) => item.id === nodeId && item.type === "image");
+    if (!node || !node.hotspots.some((hotspot) => hotspot.id === hotspotId)) return;
+    const before = cloneNodes(state.nodes);
+    const after = state.nodes.map((item) => item.id === nodeId
+      ? { ...item, hotspots: item.hotspots.map((hotspot) => hotspot.id === hotspotId ? { ...hotspot, ...patch } : hotspot), updatedAt: now() }
+      : item);
+    set({ nodes: after });
+    addHistory(before, after, set, get);
+    syncHistoryChange(before, after, set);
   },
 
   removeImageHotspot: (nodeId, hotspotId) => {
-    const node = get().nodes.find((item) => item.id === nodeId);
-    if (!node) return;
-    get().updateNode(nodeId, { hotspots: node.hotspots.filter((hotspot) => hotspot.id !== hotspotId) });
+    const state = get();
+    const node = state.nodes.find((item) => item.id === nodeId);
+    if (!node || !node.hotspots.some((hotspot) => hotspot.id === hotspotId)) return;
+    const before = cloneNodes(state.nodes);
+    const after = state.nodes.map((item) => item.id === nodeId
+      ? { ...item, hotspots: item.hotspots.filter((hotspot) => hotspot.id !== hotspotId), updatedAt: now() }
+      : item);
+    set({ nodes: after });
+    addHistory(before, after, set, get);
+    syncHistoryChange(before, after, set);
   },
 
   setViewport: (viewport, persist = true) => {
@@ -626,4 +880,5 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   setError: (error) => set({ error }),
+  clearStackNotice: () => set({ stackNotice: null }),
 }));

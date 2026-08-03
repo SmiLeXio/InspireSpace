@@ -51,9 +51,19 @@ describe("CanvasContextMenu image hotspots", () => {
     };
     const onClose = vi.fn();
     const onRequestDialog = vi.fn();
-    render(<CanvasContextMenu point={point} onClose={onClose} onRequestDialog={onRequestDialog} />);
-    return { imageId, onClose, onRequestDialog };
+    const onToggleDrawing = vi.fn();
+    render(<CanvasContextMenu point={point} onClose={onClose} onRequestDialog={onRequestDialog} drawingEnabled={false} onToggleDrawing={onToggleDrawing} />);
+    return { imageId, onClose, onRequestDialog, onToggleDrawing };
   };
+
+  it("可以从右键菜单开启自由绘画", () => {
+    const { onClose, onToggleDrawing } = setup();
+
+    fireEvent.click(screen.getByRole("button", { name: /自由绘画/ }));
+
+    expect(onToggleDrawing).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 
   it("从图片工具打开新增热点弹窗", () => {
     const { imageId, onClose, onRequestDialog } = setup();

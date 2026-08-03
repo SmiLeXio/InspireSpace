@@ -10,6 +10,7 @@ import {
   ImagePlus,
   Layers3,
   MousePointer2,
+  Paintbrush,
   Pencil,
   Puzzle,
   Redo2,
@@ -37,9 +38,11 @@ interface CanvasContextMenuProps {
   point: ContextMenuPoint;
   onClose: () => void;
   onRequestDialog: (request: CanvasDialogRequest) => void;
+  drawingEnabled: boolean;
+  onToggleDrawing: () => void;
 }
 
-export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasContextMenuProps) {
+export function CanvasContextMenu({ point, onClose, onRequestDialog, drawingEnabled, onToggleDrawing }: CanvasContextMenuProps) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const createNode = useCanvasStore((state) => state.createNode);
   const importMedia = useCanvasStore((state) => state.importMedia);
@@ -143,6 +146,19 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasCon
           <div className="context-separator" />
         </>
       ) : null}
+      <div className="context-menu-heading"><span>画布工具</span><kbd>{drawingEnabled ? "ON" : "OFF"}</kbd></div>
+      <button
+        type="button"
+        className={drawingEnabled ? "context-drawing-toggle is-active" : "context-drawing-toggle"}
+        aria-pressed={drawingEnabled}
+        onClick={() => run(onToggleDrawing)}
+      >
+        <Paintbrush />
+        <span><b>{drawingEnabled ? "关闭自由绘画" : "自由绘画"}</b><small>{drawingEnabled ? "保留笔迹并收起左下角画笔" : "打开后从左下角展开笔触与颜色"}</small></span>
+        <kbd>{drawingEnabled ? "开启" : "关闭"}</kbd>
+      </button>
+      <div className="context-separator" />
+
       <div className="context-menu-heading"><span>添加到画布</span><kbd>右键</kbd></div>
       <button type="button" onClick={() => run(() => createNode("note", world))}><FileText /><span><b>笔记</b><small>Markdown · 点击打开编辑</small></span><kbd>N</kbd></button>
       <div className="context-sticky-row">

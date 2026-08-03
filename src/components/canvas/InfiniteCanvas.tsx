@@ -7,6 +7,7 @@ import { useCanvasStore } from "../../store/useCanvasStore";
 import type { FolderIconKey, Viewport } from "../../types/canvas";
 import { CanvasContextMenu, type ContextMenuPoint } from "./CanvasContextMenu";
 import { CanvasCreationDialog, type CanvasDialogRequest } from "./CanvasCreationDialog";
+import { CanvasDrawingLayer } from "./CanvasDrawingLayer";
 import { CanvasNode } from "./CanvasNode";
 import { exceededPointerDragThreshold } from "./pointerIntent";
 import { calculateFocusOffsets, collectStackGroups, compactStackLayout, expandedStackLayout } from "./stackGeometry";
@@ -42,6 +43,7 @@ export function InfiniteCanvas() {
   const [stackDragging, setStackDragging] = useState(false);
   const [dialogRequest, setDialogRequest] = useState<CanvasDialogRequest | null>(null);
   const [externalDragActive, setExternalDragActive] = useState(false);
+  const [drawingEnabled, setDrawingEnabled] = useState(false);
 
   const nodes = useCanvasStore((state) => state.nodes);
   const workspaceRoot = useCanvasStore((state) => state.workspaceRoot);
@@ -200,7 +202,6 @@ export function InfiniteCanvas() {
   useEffect(() => () => {
     if (stackMoveFrameRef.current) cancelAnimationFrame(stackMoveFrameRef.current);
   }, []);
-
 
   const animateViewport = useCallback((target: Viewport) => {
     const proxy = { ...useCanvasStore.getState().viewport };
@@ -451,6 +452,10 @@ export function InfiniteCanvas() {
       const target = event.target as HTMLElement | null;
       const typing = Boolean(target?.matches("input, textarea, [contenteditable='true']"));
       const stackControl = Boolean(target?.closest("[data-stack-control='true']"));
+      if (drawingEnabled) {
+        if (event.key === "Escape") setContextMenu(null);
+        return;
+      }
       if (event.code === "Space" && !typing && !stackControl) {
         event.preventDefault();
         if (!event.repeat && !spacePressRef.current) {
@@ -494,7 +499,7 @@ export function InfiniteCanvas() {
       }
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space") return;
+      if (drawingEnabled || event.code !== "Space") return;
       const press = spacePressRef.current;
       if (!press) return;
       event.preventDefault();
@@ -507,7 +512,7 @@ export function InfiniteCanvas() {
     };
     const onPaste = (event: ClipboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.matches("input, textarea, [contenteditable='true']")) return;
+      if (drawingEnabled || target?.matches("input, textarea, [contenteditable='true']")) return;
       const text = event.clipboardData?.getData("text/plain");
       if (text) {
         event.preventDefault();
@@ -530,7 +535,7 @@ export function InfiniteCanvas() {
       window.removeEventListener("paste", onPaste);
       window.removeEventListener("blur", onBlur);
     };
-  }, [closeExpandedStack, createFromText, createNode, deleteSelected, fitView, redo, requestFolderDialog, resetView, screenToWorld, selectOnly, size.height, size.width, undo]);
+  }, [closeExpandedStack, createFromText, createNode, deleteSelected, drawingEnabled, fitView, redo, requestFolderDialog, resetView, screenToWorld, selectOnly, size.height, size.width, undo]);
 
   const handleWheel = (event: React.WheelEvent) => {
     event.preventDefault();
@@ -545,7 +550,7 @@ export function InfiniteCanvas() {
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const target = event.target as Element;
-    if (target.closest(".canvas-context-menu, .canvas-toolbar, .stack-focus-controls")) return;
+    if (target.closest(".canvas-context-menu, .canvas-toolbar, .stack-focus-controls, .canvas-drawing-layer")) return;
     const overNode = Boolean(target.closest(".canvas-node"));
     if (overNode && !handModeActive) return;
     setContextMenu(null);
@@ -645,6 +650,7 @@ export function InfiniteCanvas() {
       }}
     >
       <div className="canvas-grid" style={{ backgroundPosition: `${viewport.x}px ${viewport.y}px`, backgroundSize: `${28 * viewport.scale}px ${28 * viewport.scale}px` }} />
+      <CanvasDrawingLayer key={workspaceRoot} enabled={drawingEnabled} viewport={viewport} workspaceRoot={workspaceRoot} />
       <div ref={canvasWorldRef} className="canvas-world" style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})` }}>
         {expandedGroup && expandedLayout && expandedBounds ? (
           <div
@@ -752,7 +758,7 @@ export function InfiniteCanvas() {
 
       <div ref={lassoElementRef} className="selection-lasso" />
 
-      {contextMenu && !editingId ? <CanvasContextMenu point={contextMenu} onClose={() => setContextMenu(null)} onRequestDialog={setDialogRequest} /> : null}
+      {contextMenu && !editingId ? <CanvasContextMenu point={contextMenu} onClose={() => setContextMenu(null)} onRequestDialog={setDialogRequest} drawingEnabled={drawingEnabled} onToggleDrawing={() => setDrawingEnabled((enabled) => !enabled)} /> : null}
       {dialogRequest ? <CanvasCreationDialog request={dialogRequest} onClose={() => setDialogRequest(null)} onCreateFolder={handleCreateFolder} onSaveHotspot={handleSaveHotspot} /> : null}
       {externalDragActive ? <div className="external-drop-overlay" role="status" aria-live="polite"><div><UploadCloud size={30} /><strong>松开以载入到画布</strong><span>图片、视频、文档、链接或文字</span></div></div> : null}
       {stackNotice ? <div key={stackNotice.id} className="stack-toast" role="status" aria-live="polite"><Layers3 size={15} />{stackNotice.message}</div> : null}

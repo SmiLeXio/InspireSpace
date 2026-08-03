@@ -122,7 +122,6 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasCon
                   y: hotspot.y,
                   label: hotspot.label,
                   description: hotspot.description,
-                  anchor: { x: point.screenX, y: point.screenY },
                 });
                 return (
                   <div className="hotspot-archive-row" key={hotspot.id}>
@@ -151,7 +150,7 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasCon
           {STICKY_COLORS.map((color) => <button key={color.value} type="button" title={color.name} style={{ background: color.value }} onClick={() => run(() => createNode("sticky", world, { color: color.value }))} />)}
         </div>
       </div>
-      <button type="button" onClick={() => openDialog({ kind: "folder", childIds: [...selectedIds], point: world, anchor: { x: point.screenX, y: point.screenY } })}><FolderPlus /><span><b>文件夹</b><small>{selectedIds.length ? `收纳已选 ${selectedIds.length} 项` : "聚焦展开 · 背景虚化"}</small></span><kbd>F</kbd></button>
+      <button type="button" onClick={() => openDialog({ kind: "folder", childIds: [...selectedIds], point: world })}><FolderPlus /><span><b>文件夹</b><small>{selectedIds.length ? `收纳已选 ${selectedIds.length} 项` : "聚焦展开 · 背景虚化"}</small></span><kbd>F</kbd></button>
       <button type="button" onClick={() => run(() => createNode("web", world))}><Globe2 /><span><b>网络卡片</b><small>网址、X 帖子与书签</small></span><kbd>W</kbd></button>
 
       <div className="context-separator" />

@@ -278,6 +278,7 @@ export function InfiniteCanvas() {
     folderIcon: FolderIconKey;
   }) => {
     createFolder(request.childIds, request.point, options);
+    setDialogRequest(null);
     return true;
   }, [createFolder]);
 
@@ -293,6 +294,7 @@ export function InfiniteCanvas() {
         label: values.label,
         description: values.description,
       });
+    if (saved) setDialogRequest(null);
     return saved;
   }, [addImageHotspot, updateImageHotspot]);
 

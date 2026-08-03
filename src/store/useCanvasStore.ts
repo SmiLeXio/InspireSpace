@@ -64,9 +64,9 @@ interface CanvasStore {
   deleteSelected: () => Promise<void>;
   stackSelected: () => void;
   unstack: (stackId: string) => void;
-  addImageHotspot: (nodeId: string, hotspot: Omit<ImageHotspot, "id">) => void;
-  updateImageHotspot: (nodeId: string, hotspotId: string, patch: Partial<Pick<ImageHotspot, "label" | "description">>) => void;
-  removeImageHotspot: (nodeId: string, hotspotId: string) => void;
+  addImageHotspot: (nodeId: string, hotspot: Omit<ImageHotspot, "id">) => boolean;
+  updateImageHotspot: (nodeId: string, hotspotId: string, patch: Partial<Pick<ImageHotspot, "label" | "description">>) => boolean;
+  removeImageHotspot: (nodeId: string, hotspotId: string) => boolean;
   setViewport: (viewport: Viewport, persist?: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -803,7 +803,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   addImageHotspot: (nodeId, hotspot) => {
     const state = get();
     const node = state.nodes.find((item) => item.id === nodeId && item.type === "image");
-    if (!node) return;
+    if (!node) return false;
     const before = cloneNodes(state.nodes);
     const after = state.nodes.map((item) => item.id === nodeId
       ? { ...item, hotspots: [...item.hotspots, { ...hotspot, id: uniqueId() }], updatedAt: now() }
@@ -811,12 +811,13 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     set({ nodes: after });
     addHistory(before, after, set, get);
     syncHistoryChange(before, after, set);
+    return true;
   },
 
   updateImageHotspot: (nodeId, hotspotId, patch) => {
     const state = get();
     const node = state.nodes.find((item) => item.id === nodeId && item.type === "image");
-    if (!node || !node.hotspots.some((hotspot) => hotspot.id === hotspotId)) return;
+    if (!node || !node.hotspots.some((hotspot) => hotspot.id === hotspotId)) return false;
     const before = cloneNodes(state.nodes);
     const after = state.nodes.map((item) => item.id === nodeId
       ? { ...item, hotspots: item.hotspots.map((hotspot) => hotspot.id === hotspotId ? { ...hotspot, ...patch } : hotspot), updatedAt: now() }
@@ -824,12 +825,13 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     set({ nodes: after });
     addHistory(before, after, set, get);
     syncHistoryChange(before, after, set);
+    return true;
   },
 
   removeImageHotspot: (nodeId, hotspotId) => {
     const state = get();
     const node = state.nodes.find((item) => item.id === nodeId);
-    if (!node || !node.hotspots.some((hotspot) => hotspot.id === hotspotId)) return;
+    if (!node || !node.hotspots.some((hotspot) => hotspot.id === hotspotId)) return false;
     const before = cloneNodes(state.nodes);
     const after = state.nodes.map((item) => item.id === nodeId
       ? { ...item, hotspots: item.hotspots.filter((hotspot) => hotspot.id !== hotspotId), updatedAt: now() }
@@ -837,6 +839,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     set({ nodes: after });
     addHistory(before, after, set, get);
     syncHistoryChange(before, after, set);
+    return true;
   },
 
   setViewport: (viewport, persist = true) => {

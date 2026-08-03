@@ -250,8 +250,27 @@ export function InfiniteCanvas() {
 
   const requestFolderDialog = useCallback((childIds: string[] = [], point?: { x: number; y: number }) => {
     setContextMenu(null);
-    setDialogRequest({ kind: "folder", childIds: [...childIds], point });
-  }, []);
+    let anchor = point ? { x: point.x * viewport.scale + viewport.x, y: point.y * viewport.scale + viewport.y } : undefined;
+    if (!anchor && childIds.length) {
+      const children = useCanvasStore.getState().nodes.filter((node) => childIds.includes(node.id));
+      if (children.length) {
+        const minX = Math.min(...children.map((node) => node.x));
+        const minY = Math.min(...children.map((node) => node.y));
+        const maxX = Math.max(...children.map((node) => node.x + node.width));
+        const maxY = Math.max(...children.map((node) => node.y + node.height));
+        anchor = {
+          x: ((minX + maxX) / 2) * viewport.scale + viewport.x,
+          y: minY * viewport.scale + viewport.y,
+        };
+      }
+    }
+    setDialogRequest({
+      kind: "folder",
+      childIds: [...childIds],
+      point,
+      anchor: anchor ?? { x: size.width / 2, y: 68 },
+    });
+  }, [size.width, viewport.scale, viewport.x, viewport.y]);
 
   const handleCreateFolder = useCallback((request: Extract<CanvasDialogRequest, { kind: "folder" }>, options: {
     title: string;
@@ -259,24 +278,22 @@ export function InfiniteCanvas() {
     folderIcon: FolderIconKey;
   }) => {
     createFolder(request.childIds, request.point, options);
-    setDialogRequest(null);
+    return true;
   }, [createFolder]);
 
   const handleSaveHotspot = useCallback((request: Extract<CanvasDialogRequest, { kind: "hotspot" }>, values: {
     label: string;
     description: string;
   }) => {
-    if (request.hotspotId) {
-      updateImageHotspot(request.nodeId, request.hotspotId, values);
-    } else {
-      addImageHotspot(request.nodeId, {
+    const saved = request.hotspotId
+      ? updateImageHotspot(request.nodeId, request.hotspotId, values)
+      : addImageHotspot(request.nodeId, {
         x: request.x,
         y: request.y,
         label: values.label,
         description: values.description,
       });
-    }
-    setDialogRequest(null);
+    return saved;
   }, [addImageHotspot, updateImageHotspot]);
 
   const handleExternalDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -625,10 +642,6 @@ export function InfiniteCanvas() {
         const nodeId = targetNode?.dataset.nodeId;
         if (nodeId && !selectedSet.has(nodeId)) selectOnly(nodeId);
         openMenuAt(event.clientX, event.clientY, nodeId);
-      }}
-      onDoubleClick={(event) => {
-        if ((event.target as Element).closest(".canvas-node, .stack-focus-controls")) return;
-        openMenuAt(event.clientX, event.clientY);
       }}
     >
       <div className="canvas-grid" style={{ backgroundPosition: `${viewport.x}px ${viewport.y}px`, backgroundSize: `${28 * viewport.scale}px ${28 * viewport.scale}px` }} />

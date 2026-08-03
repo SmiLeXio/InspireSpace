@@ -1,8 +1,9 @@
 import { gsap } from "gsap";
 import { ArrowRight, Clock3, FolderOpen, GitBranch, Plus, Sparkles } from "lucide-react";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { backend } from "../../lib/backend";
 import { useCanvasStore } from "../../store/useCanvasStore";
+import { ProjectCreationComposer } from "./ProjectCreationComposer";
 
 const defaultCloneName = (url: string) => {
   const name = url.split(/[\\/]/).at(-1)?.replace(/\.git$/i, "").trim();
@@ -17,11 +18,17 @@ export function WelcomeScreen() {
   const cloneProject = useCanvasStore((state) => state.cloneProject);
   const openDemo = useCanvasStore((state) => state.openDemo);
   const setError = useCanvasStore((state) => state.setError);
+  const browserMode = !backend.isTauriRuntime();
+  const [projectParent, setProjectParent] = useState<string | null>(null);
+  const [introAnimating, setIntroAnimating] = useState(true);
 
   useLayoutEffect(() => {
     if (!rootRef.current) return;
     const ctx = gsap.context(() => {
-      const timeline = gsap.timeline({ defaults: { ease: "power3.out" } });
+      const timeline = gsap.timeline({
+        defaults: { ease: "power3.out" },
+        onComplete: () => setIntroAnimating(false),
+      });
       timeline
         .fromTo(".welcome-brand", { opacity: 0, y: -12 }, { opacity: 1, y: 0, duration: 0.55 })
         .fromTo(".welcome-copy > *", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.62, stagger: 0.08 }, "-=0.28")
@@ -33,18 +40,25 @@ export function WelcomeScreen() {
   }, []);
 
   const handleOpen = async () => {
+    setProjectParent(null);
     const path = await backend.chooseDirectory();
     if (path) await openProject(path);
   };
 
   const handleCreate = async () => {
-    const parent = await backend.chooseDirectory();
-    if (!parent) return;
-    const name = window.prompt("项目名称", "我的灵感空间")?.trim();
-    if (name) await createProject(parent, name);
+    if (projectParent) return;
+    const parent = browserMode ? "InspireSpace" : await backend.chooseDirectory();
+    if (parent) setProjectParent(parent);
+  };
+
+  const submitProjectCreation = async (name: string) => {
+    if (!projectParent) return false;
+    await createProject(projectParent, name);
+    return useCanvasStore.getState().screen === "canvas";
   };
 
   const handleClone = async () => {
+    setProjectParent(null);
     const url = window.prompt("Git 仓库地址", "https://github.com/")?.trim();
     if (!url) return;
     const parent = await backend.chooseDirectory();
@@ -54,7 +68,7 @@ export function WelcomeScreen() {
   };
 
   return (
-    <main ref={rootRef} className="welcome-screen">
+    <main ref={rootRef} className={`welcome-screen${introAnimating ? " is-intro-animating" : ""}`}>
       <div className="welcome-aurora one" /><div className="welcome-aurora two" />
       <header className="welcome-brand"><div className="brand-mark"><Sparkles size={18} /></div><strong>InspireSpace</strong><span>灵感空间</span></header>
 
@@ -68,9 +82,17 @@ export function WelcomeScreen() {
 
           <div className="welcome-actions">
             <button type="button" className="primary" onClick={handleOpen}><FolderOpen size={18} /><span><b>打开项目</b><small>选择已有本地文件夹</small></span><ArrowRight size={16} /></button>
-            <button type="button" onClick={handleCreate}><Plus size={18} /><span><b>新建项目</b><small>创建一个新的灵感空间</small></span><ArrowRight size={16} /></button>
+            <button type="button" className={projectParent ? "is-active" : undefined} onClick={() => void handleCreate()} aria-expanded={Boolean(projectParent)}><Plus size={18} /><span><b>新建项目</b><small>{projectParent ? "输入名称后创建" : "创建一个新的灵感空间"}</small></span><ArrowRight size={16} /></button>
             <button type="button" onClick={handleClone}><GitBranch size={18} /><span><b>克隆 Git 仓库</b><small>从远程仓库开始工作</small></span><ArrowRight size={16} /></button>
           </div>
+
+          {projectParent ? (
+            <ProjectCreationComposer
+              browserMode={browserMode}
+              onClose={() => setProjectParent(null)}
+              onCreate={submitProjectCreation}
+            />
+          ) : null}
 
           <div className="recent-section">
             <div className="recent-heading"><span>最近打开</span><small>{recentProjects.length ? `${recentProjects.length} 个项目` : "暂无项目"}</small></div>
@@ -105,3 +127,5 @@ export function WelcomeScreen() {
     </main>
   );
 }
+
+

@@ -18,6 +18,7 @@ import {
   Undo2,
   Video,
 } from "lucide-react";
+import { useState } from "react";
 import { useCanvasStore } from "../../store/useCanvasStore";
 import { STICKY_COLORS } from "../../types/canvas";
 import type { CanvasDialogRequest } from "./CanvasCreationDialog";
@@ -39,6 +40,7 @@ interface CanvasContextMenuProps {
 }
 
 export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasContextMenuProps) {
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const createNode = useCanvasStore((state) => state.createNode);
   const importMedia = useCanvasStore((state) => state.importMedia);
   const createFromText = useCanvasStore((state) => state.createFromText);
@@ -57,9 +59,14 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasCon
     void action();
   };
 
+  const openDialog = (request: CanvasDialogRequest) => {
+    onRequestDialog(request);
+    onClose();
+  };
+
   const requestHotspot = () => {
     if (!targetNode || targetNode.type !== "image") return;
-    onRequestDialog({
+    openDialog({
       kind: "hotspot",
       nodeId: targetNode.id,
       x: point.hotspotX ?? 0.5,
@@ -88,40 +95,47 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasCon
       {targetNode?.type === "image" ? (
         <>
           <div className="context-menu-heading"><span>图片工具</span><kbd>Hotspot</kbd></div>
-          <button type="button" className="hotspot-menu-action" onClick={() => run(requestHotspot)}><MousePointer2 /><span><b>添加图片热点</b><small>在点击位置添加悬浮标注</small></span></button>
-          <div className="context-submenu-wrap">
-            <button type="button" className="hotspot-archive-trigger"><Archive /><span><b>热点存档</b><small>{targetNode.hotspots.length ? `${targetNode.hotspots.length} 个热点` : "暂无热点"}</small></span><ChevronRight className="context-submenu-arrow" /></button>
+          <button type="button" className="hotspot-menu-action" onClick={requestHotspot}><MousePointer2 /><span><b>添加图片热点</b><small>在点击位置添加悬浮标注</small></span></button>
+          <div
+            className={`context-submenu-wrap ${archiveOpen ? "is-open" : ""}`}
+            onPointerEnter={() => setArchiveOpen(true)}
+            onPointerLeave={() => setArchiveOpen(false)}
+          >
+            <button
+              type="button"
+              className="hotspot-archive-trigger"
+              aria-haspopup="menu"
+              aria-expanded={archiveOpen}
+              onClick={() => setArchiveOpen((open) => !open)}
+            >
+              <Archive /><span><b>热点存档</b><small>{targetNode.hotspots.length ? `${targetNode.hotspots.length} 个热点` : "暂无热点"}</small></span><ChevronRight className="context-submenu-arrow" />
+            </button>
             <div className="context-submenu hotspot-archive-menu" role="menu" aria-label="热点存档">
               <div className="hotspot-archive-heading"><span>热点存档</span><small>{targetNode.hotspots.length} 项</small></div>
-              {targetNode.hotspots.length ? targetNode.hotspots.map((hotspot) => (
-                <div className="hotspot-archive-row" key={hotspot.id}>
-                  <i aria-hidden="true" />
-                  <button type="button" className="hotspot-archive-name" title={hotspot.description || hotspot.label} onClick={() => run(() => onRequestDialog({
-                    kind: "hotspot",
-                    nodeId: targetNode.id,
-                    hotspotId: hotspot.id,
-                    x: hotspot.x,
-                    y: hotspot.y,
-                    label: hotspot.label,
-                    description: hotspot.description,
-                  }))}>{hotspot.label}</button>
-                  <div>
-                    <button type="button" title="编辑热点" aria-label={`编辑${hotspot.label}`} onClick={() => run(() => onRequestDialog({
-                      kind: "hotspot",
-                      nodeId: targetNode.id,
-                      hotspotId: hotspot.id,
-                      x: hotspot.x,
-                      y: hotspot.y,
-                      label: hotspot.label,
-                      description: hotspot.description,
-                    }))}><Pencil size={12} /></button>
-                    <button type="button" className="is-danger" title="删除热点" aria-label={`删除${hotspot.label}`} onClick={(event) => {
-                      event.stopPropagation();
-                      removeImageHotspot(targetNode.id, hotspot.id);
-                    }}><Trash2 size={12} /></button>
+              {targetNode.hotspots.length ? targetNode.hotspots.map((hotspot) => {
+                const editHotspot = () => openDialog({
+                  kind: "hotspot",
+                  nodeId: targetNode.id,
+                  hotspotId: hotspot.id,
+                  x: hotspot.x,
+                  y: hotspot.y,
+                  label: hotspot.label,
+                  description: hotspot.description,
+                });
+                return (
+                  <div className="hotspot-archive-row" key={hotspot.id}>
+                    <i aria-hidden="true" />
+                    <button type="button" className="hotspot-archive-name" title={hotspot.description || hotspot.label} onClick={editHotspot}>{hotspot.label}</button>
+                    <div>
+                      <button type="button" title="编辑热点" aria-label={`编辑${hotspot.label}`} onClick={editHotspot}><Pencil size={12} /></button>
+                      <button type="button" className="is-danger" title="删除热点" aria-label={`删除${hotspot.label}`} onClick={(event) => {
+                        event.stopPropagation();
+                        removeImageHotspot(targetNode.id, hotspot.id);
+                      }}><Trash2 size={12} /></button>
+                    </div>
                   </div>
-                </div>
-              )) : <div className="hotspot-archive-empty"><MousePointer2 size={18} /><span>这张图片还没有热点</span></div>}
+                );
+              }) : <div className="hotspot-archive-empty"><MousePointer2 size={18} /><span>这张图片还没有热点</span></div>}
             </div>
           </div>
           <div className="context-separator" />
@@ -135,7 +149,7 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog }: CanvasCon
           {STICKY_COLORS.map((color) => <button key={color.value} type="button" title={color.name} style={{ background: color.value }} onClick={() => run(() => createNode("sticky", world, { color: color.value }))} />)}
         </div>
       </div>
-      <button type="button" onClick={() => run(() => onRequestDialog({ kind: "folder", childIds: [...selectedIds], point: world }))}><FolderPlus /><span><b>文件夹</b><small>{selectedIds.length ? `收纳已选 ${selectedIds.length} 项` : "聚焦展开 · 背景虚化"}</small></span><kbd>F</kbd></button>
+      <button type="button" onClick={() => openDialog({ kind: "folder", childIds: [...selectedIds], point: world })}><FolderPlus /><span><b>文件夹</b><small>{selectedIds.length ? `收纳已选 ${selectedIds.length} 项` : "聚焦展开 · 背景虚化"}</small></span><kbd>F</kbd></button>
       <button type="button" onClick={() => run(() => createNode("web", world))}><Globe2 /><span><b>网络卡片</b><small>网址、X 帖子与书签</small></span><kbd>W</kbd></button>
 
       <div className="context-separator" />

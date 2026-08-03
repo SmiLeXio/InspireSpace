@@ -260,23 +260,23 @@ export function InfiniteCanvas() {
   }) => {
     createFolder(request.childIds, request.point, options);
     setDialogRequest(null);
+    return true;
   }, [createFolder]);
 
   const handleSaveHotspot = useCallback((request: Extract<CanvasDialogRequest, { kind: "hotspot" }>, values: {
     label: string;
     description: string;
   }) => {
-    if (request.hotspotId) {
-      updateImageHotspot(request.nodeId, request.hotspotId, values);
-    } else {
-      addImageHotspot(request.nodeId, {
+    const saved = request.hotspotId
+      ? updateImageHotspot(request.nodeId, request.hotspotId, values)
+      : addImageHotspot(request.nodeId, {
         x: request.x,
         y: request.y,
         label: values.label,
         description: values.description,
       });
-    }
-    setDialogRequest(null);
+    if (saved) setDialogRequest(null);
+    return saved;
   }, [addImageHotspot, updateImageHotspot]);
 
   const handleExternalDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {

@@ -297,6 +297,19 @@ export function InfiniteCanvas() {
     return saved;
   }, [addImageHotspot, updateImageHotspot]);
 
+  const handleCreateText = useCallback((request: Extract<CanvasDialogRequest, { kind: "text" }>, values: {
+    content: string;
+  }) => {
+    const lines = values.content.split(/\r?\n/);
+    const longestLine = Math.max(...lines.map((line) => Array.from(line).length), 1);
+    const columns = Math.min(20, Math.max(4, longestLine));
+    const visualLines = lines.reduce((count, line) => count + Math.max(1, Math.ceil(Array.from(line).length / columns)), 0);
+    const width = Math.min(620, Math.max(140, columns * 30 + 12));
+    const height = Math.min(520, Math.max(54, visualLines * 42 + 12));
+    createNode("text", request.point, { title: "", content: values.content, width, height, color: null });
+    return true;
+  }, [createNode]);
+
   const handleExternalDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     externalDragDepthRef.current += 1;
@@ -759,7 +772,7 @@ export function InfiniteCanvas() {
       <div ref={lassoElementRef} className="selection-lasso" />
 
       {contextMenu && !editingId ? <CanvasContextMenu point={contextMenu} onClose={() => setContextMenu(null)} onRequestDialog={setDialogRequest} drawingEnabled={drawingEnabled} onToggleDrawing={() => setDrawingEnabled((enabled) => !enabled)} /> : null}
-      {dialogRequest ? <CanvasCreationDialog request={dialogRequest} onClose={() => setDialogRequest(null)} onCreateFolder={handleCreateFolder} onSaveHotspot={handleSaveHotspot} /> : null}
+      {dialogRequest ? <CanvasCreationDialog request={dialogRequest} onClose={() => setDialogRequest(null)} onCreateFolder={handleCreateFolder} onSaveHotspot={handleSaveHotspot} onCreateText={handleCreateText} /> : null}
       {externalDragActive ? <div className="external-drop-overlay" role="status" aria-live="polite"><div><UploadCloud size={30} /><strong>松开以载入到画布</strong><span>图片、视频、文档、链接或文字</span></div></div> : null}
       {stackNotice ? <div key={stackNotice.id} className="stack-toast" role="status" aria-live="polite"><Layers3 size={15} />{stackNotice.message}</div> : null}
       {!rootNodes.length && !contextMenu ? <div className="empty-whisper">右键画布，添加第一张卡片</div> : null}

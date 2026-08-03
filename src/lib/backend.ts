@@ -45,8 +45,8 @@ const activateBrowserProject = (path: string) => {
 const mediaFilters: Record<ImportKind, { name: string; extensions: string[]; accept: string }> = {
   image: {
     name: "图片",
-    extensions: ["png", "jpg", "jpeg", "gif", "webp", "tiff", "tif", "bmp", "ico", "icns", "heic", "raw", "exr", "hdr"],
-    accept: ".png,.jpg,.jpeg,.gif,.webp,.tiff,.tif,.bmp,.ico,.icns,.heic,.raw,.exr,.hdr,image/*",
+    extensions: ["png", "jpg", "jpeg", "jfif", "svg", "gif", "webp", "tiff", "tif", "bmp", "ico", "icns", "heic", "raw", "exr", "hdr"],
+    accept: ".png,.jpg,.jpeg,.jfif,.svg,.gif,.webp,.tiff,.tif,.bmp,.ico,.icns,.heic,.raw,.exr,.hdr,image/*",
   },
   video: {
     name: "视频",

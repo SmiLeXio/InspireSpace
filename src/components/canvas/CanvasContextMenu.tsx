@@ -161,6 +161,7 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog, drawingEnab
 
       <div className="context-menu-heading"><span>添加到画布</span><kbd>右键</kbd></div>
       <button type="button" onClick={() => run(() => createNode("note", world))}><FileText /><span><b>笔记</b><small>Markdown · 点击打开编辑</small></span><kbd>N</kbd></button>
+      <button type="button" onClick={() => openDialog({ kind: "text", point: world, anchor: { x: point.screenX, y: point.screenY } })}><Pencil /><span><b>文本</b><small>添加透明背景的纯文字</small></span></button>
       <div className="context-sticky-row">
         <button type="button" onClick={() => run(() => createNode("sticky", world))}><StickyNote /><span><b>便签</b><small>Markdown · 直接编辑</small></span><kbd>S</kbd></button>
         <div className="sticky-swatches" aria-label="便签颜色">
@@ -172,7 +173,7 @@ export function CanvasContextMenu({ point, onClose, onRequestDialog, drawingEnab
 
       <div className="context-separator" />
       <button type="button" onClick={() => run(() => importMedia("video", world))}><Video /><span><b>视频</b><small>MP4 / MOV / WebM / AVI / GIF</small></span></button>
-      <button type="button" onClick={() => run(() => importMedia("image", world))}><ImagePlus /><span><b>图片</b><small>PNG / JPEG / HEIC / RAW 等</small></span></button>
+      <button type="button" onClick={() => run(() => importMedia("image", world))}><ImagePlus /><span><b>图片</b><small>PNG / JPEG / JFIF / SVG / HEIC 等</small></span></button>
       <button type="button" onClick={() => run(() => importMedia("document", world))}><FileIcon /><span><b>文档</b><small>Markdown / TXT / RTF / PDF</small></span></button>
       <button type="button" onClick={() => run(() => createNode("plugin", world, { pluginKind: "clock", title: "本地时间" }))}><Puzzle /><span><b>插件</b><small><Clock3 size={11} /> 时钟插件</small></span></button>
       <button type="button" onClick={() => run(paste)}><ClipboardPaste /><span><b>从剪贴板粘贴</b><small>网页 URL、X 链接或任意文字</small></span><kbd>⌘V</kbd></button>

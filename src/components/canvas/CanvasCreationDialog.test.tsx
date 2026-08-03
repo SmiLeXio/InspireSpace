@@ -13,6 +13,7 @@ describe("CanvasCreationDialog", () => {
         onClose={vi.fn()}
         onCreateFolder={onCreateFolder}
         onSaveHotspot={vi.fn()}
+        onCreateText={vi.fn()}
       />,
     );
 
@@ -28,6 +29,28 @@ describe("CanvasCreationDialog", () => {
     );
   });
 
+  it("提交输入内容并创建文本卡片", () => {
+    const onCreateText = vi.fn(() => true);
+
+    render(
+      <CanvasCreationDialog
+        request={{ kind: "text", point: { x: 220, y: 180 } }}
+        onClose={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onSaveHotspot={vi.fn()}
+        onCreateText={onCreateText}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("文本内容"), { target: { value: "记录今天的灵感\n下一步整理成方案" } });
+    fireEvent.click(screen.getByRole("button", { name: "创建文本" }));
+
+    expect(onCreateText).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "text", point: { x: 220, y: 180 } }),
+      { content: "记录今天的灵感\n下一步整理成方案" },
+    );
+  });
+
   it("热点保存失败时保留弹窗并显示反馈", () => {
     const onSaveHotspot = vi.fn(() => false);
 
@@ -37,6 +60,7 @@ describe("CanvasCreationDialog", () => {
         onClose={vi.fn()}
         onCreateFolder={vi.fn()}
         onSaveHotspot={onSaveHotspot}
+        onCreateText={vi.fn()}
       />,
     );
 

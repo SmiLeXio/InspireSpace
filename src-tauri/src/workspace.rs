@@ -216,6 +216,8 @@ fn validate_extension(kind: &str, extension: &str) -> anyhow::Result<()> {
             "png"
                 | "jpg"
                 | "jpeg"
+                | "jfif"
+                | "svg"
                 | "gif"
                 | "webp"
                 | "tiff"
@@ -254,8 +256,9 @@ fn validate_extension(kind: &str, extension: &str) -> anyhow::Result<()> {
 
 fn mime_for_extension(extension: &str) -> &'static str {
     match extension {
-        "jpg" | "jpeg" => "image/jpeg",
+        "jpg" | "jpeg" | "jfif" => "image/jpeg",
         "png" => "image/png",
+        "svg" => "image/svg+xml",
         "gif" => "image/gif",
         "webp" => "image/webp",
         "tiff" | "tif" => "image/tiff",
@@ -294,4 +297,21 @@ fn atomic_write(path: &Path, content: &[u8]) -> anyhow::Result<()> {
     }
     fs::rename(temporary, path)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{mime_for_extension, validate_extension};
+
+    #[test]
+    fn accepts_jfif_as_a_jpeg_image() {
+        assert!(validate_extension("image", "jfif").is_ok());
+        assert_eq!(mime_for_extension("jfif"), "image/jpeg");
+    }
+
+    #[test]
+    fn accepts_svg_as_an_svg_image() {
+        assert!(validate_extension("image", "svg").is_ok());
+        assert_eq!(mime_for_extension("svg"), "image/svg+xml");
+    }
 }

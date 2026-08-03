@@ -357,6 +357,34 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .canvas-node:hover .node-drag-area,
 .canvas-node.is-selected .node-drag-area { opacity: .82; }
 
+/* Text objects render as a canvas text layer rather than a card. */
+.node-text:not(.is-stack-top) .node-drag-area { display: none; }
+.canvas-text-display,
+.canvas-text-editor {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #202522;
+  font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: .01em;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.canvas-text-display { overflow: visible; }
+.canvas-text-editor {
+  display: block;
+  resize: none;
+  overflow: auto;
+  user-select: text;
+}
+
 .image-card { position: relative; }
 .node-image .node-card-tilt {
   border: 0;
@@ -1046,6 +1074,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   will-change: transform, opacity;
 }
 .creation-composer.is-hotspot-composer { width: min(420px, calc(100% - 28px)); }
+.creation-composer.is-text-composer { width: min(500px, calc(100% - 28px)); }
+.creation-composer.is-text-composer .creation-composer-primary {
+  grid-template-columns: 40px minmax(0, 1fr) 37px 42px;
+  align-items: start;
+}
 .creation-composer-eyebrow {
   display: block;
   height: 14px;
@@ -1092,6 +1125,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     5px 6px 12px rgba(86,94,90,.32),
     -3px -3px 8px rgba(255,255,255,.72);
 }
+.creation-composer-symbol.is-text {
+  background: #dfe6e2;
+  color: #426151;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.65),
+    5px 6px 12px rgba(113,128,120,.23),
+    -3px -3px 8px rgba(255,255,255,.76);
+}
 .creation-composer-field {
   display: grid;
   height: 42px;
@@ -1137,6 +1178,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   user-select: text;
 }
 .creation-composer-field input::placeholder { color: #8e9692; font-weight: 520; }
+.creation-composer-field.is-text-field {
+  height: 112px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 2px;
+  padding: 10px 11px 7px 13px;
+}
+.creation-composer-field.is-text-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 4px 0 0;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #2c3330;
+  caret-color: #4b705f;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.55;
+  user-select: text;
+}
+.creation-composer-field.is-text-field textarea::placeholder { color: #8e9692; font-weight: 520; }
+.creation-composer-field.is-text-field > small { justify-self: end; }
 .creation-composer-field > small {
   color: #929996;
   font-size: 7px;
@@ -1548,3 +1615,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   .canvas-drawing-layer .Draw_toolbar { transition-duration: 1ms !important; }
 }
 
+/* Pure text nodes never regain card chrome from drag, stack, focus, or drop states. */
+.canvas-node.node-text .node-card-tilt,
+.canvas-node.node-text:hover .node-card-tilt,
+.canvas-node.node-text.is-selected .node-card-tilt,
+.canvas-node.node-text.is-dragging .node-card-tilt,
+.canvas-node.node-text.is-stack-expanded .node-card-tilt,
+.canvas-node.node-text.is-stack-underlay .node-card-tilt,
+.canvas-node.node-text.is-drop-target .node-card-tilt {
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+.canvas-node.node-text.is-selected .node-card-tilt {
+  outline: 1px dashed rgba(55, 92, 77, .42);
+  outline-offset: 4px;
+}

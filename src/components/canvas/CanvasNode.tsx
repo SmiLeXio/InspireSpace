@@ -10,6 +10,7 @@ import {
   Layers3,
   Play,
   StickyNote,
+  Type,
   Video,
   X,
 } from "lucide-react";
@@ -65,6 +66,7 @@ const noteParts = (content: string) => {
 };
 
 const typeMeta = {
+  text: { label: "文本", icon: Type },
   note: { label: "笔记", icon: FileText },
   sheet: { label: "笔记", icon: FileText },
   sticky: { label: "便签", icon: StickyNote },
@@ -128,11 +130,13 @@ function CanvasNodeComponent({
   onStackDragActivity,
 }: CanvasNodeProps) {
   const rootRef = useRef<HTMLElement>(null);
+  const textEditorRef = useRef<HTMLTextAreaElement>(null);
   const suppressClickRef = useRef(false);
   const interactionRef = useRef<"pressed" | "drag" | "resize" | null>(null);
   const [hoverCorner, setHoverCorner] = useState<Corner | null>(null);
   const [activeCorner, setActiveCorner] = useState<Corner | null>(null);
   const [webInteractionActive, setWebInteractionActive] = useState(false);
+  const [textEditing, setTextEditing] = useState(false);
   const selectOnly = useCanvasStore((state) => state.selectOnly);
   const selectMany = useCanvasStore((state) => state.selectMany);
   const toggleSelection = useCanvasStore((state) => state.toggleSelection);
@@ -151,8 +155,22 @@ function CanvasNodeComponent({
   const FolderGlyph = folderIconFor(node.folderIcon);
 
   useEffect(() => {
-    if (!selected) setWebInteractionActive(false);
+    if (!selected) {
+      setWebInteractionActive(false);
+      setTextEditing(false);
+    }
   }, [selected]);
+
+  useEffect(() => {
+    if (!textEditing) return;
+    const frame = requestAnimationFrame(() => {
+      const editor = textEditorRef.current;
+      if (!editor) return;
+      editor.focus();
+      editor.setSelectionRange(editor.value.length, editor.value.length);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [textEditing]);
 
   useEffect(() => {
     if (!webInteractionActive) return;
@@ -587,26 +605,60 @@ function CanvasNodeComponent({
       onContextMenu={() => { if (!selected) selectOnly(node.id); }}
     >
       <div className="node-card-tilt">
-        <header className="node-drag-area">
-          <span><Icon size={13} strokeWidth={1.8} />{meta.label}</span>
-          {compactStackTop && stackCount > 1 ? (
-            <button
-              className="stack-count"
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                requestExpansion();
-              }}
-              title="展开这一堆"
-              aria-label={`展开${node.stackTitle || "未命名堆叠"}，共 ${stackCount} 个项目`}
-            >
-              <Layers3 size={12} /> {stackCount}
-            </button>
-          ) : null}
-        </header>
+        {node.type !== "text" || compactStackTop ? (
+          <header className="node-drag-area">
+            <span><Icon size={13} strokeWidth={1.8} />{meta.label}</span>
+            {compactStackTop && stackCount > 1 ? (
+              <button
+                className="stack-count"
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  requestExpansion();
+                }}
+                title="展开这一堆"
+                aria-label={`展开${node.stackTitle || "未命名堆叠"}，共 ${stackCount} 个项目`}
+              >
+                <Layers3 size={12} /> {stackCount}
+              </button>
+            ) : null}
+          </header>
+        ) : null}
 
         <div className="node-content">
+          {node.type === "text" ? (
+            textEditing ? (
+              <textarea
+                ref={textEditorRef}
+                className="canvas-text-editor"
+                value={node.content}
+                onChange={(event) => updateNode(node.id, { content: event.target.value })}
+                onBlur={() => setTextEditing(false)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" || ((event.ctrlKey || event.metaKey) && event.key === "Enter")) {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                }}
+                aria-label="文本内容"
+                spellCheck
+              />
+            ) : (
+              <div
+                className="canvas-text-display"
+                onDoubleClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  selectOnly(node.id);
+                  setTextEditing(true);
+                }}
+                title="双击编辑文字"
+              >
+                {node.content}
+              </div>
+            )
+          ) : null}
           {node.type === "sticky" ? <textarea className="sticky-direct-editor" value={node.content} onChange={(event) => updateNode(node.id, { content: event.target.value })} placeholder="直接输入便签内容…" spellCheck style={{ color: node.color === "#252726" ? "#f7f7f4" : "#1d201f" }} /> : null}
           {node.type === "note" || node.type === "sheet" ? <button className="note-preview" type="button" data-card-primary="true" onClick={openPrimary}><strong>{node.title || "未命名笔记"}</strong><span>{plainMarkdown(node.content) || "点击打开并开始编辑"}</span><em>点击打开</em></button> : null}
           {node.type === "folder" ? <button className={`folder-preview ${childCount ? "has-children" : "is-empty"}`} type="button" data-card-primary="true" onClick={openPrimary}><div className="folder-tab" />{childCount ? <><div className="folder-sheet one" /><div className="folder-sheet two" /></> : null}<div className="folder-front"><FolderGlyph className="folder-glyph" size={26} strokeWidth={1.65} /><strong>{node.title || "新建文件夹"}</strong><span>{childCount ? `${childCount} 个项目` : "空文件夹"}</span></div></button> : null}
@@ -682,4 +734,3 @@ function CanvasNodeComponent({
 }
 
 export const CanvasNode = memo(CanvasNodeComponent);
-

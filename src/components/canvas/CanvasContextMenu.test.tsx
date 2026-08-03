@@ -65,6 +65,19 @@ describe("CanvasContextMenu image hotspots", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("从右键菜单打开文本输入弹窗", () => {
+    const { onClose, onRequestDialog } = setup();
+
+    fireEvent.click(screen.getByRole("button", { name: /^文本/ }));
+
+    expect(onRequestDialog).toHaveBeenCalledWith({
+      kind: "text",
+      point: { x: 220, y: 180 },
+      anchor: { x: 320, y: 200 },
+    });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it("从图片工具打开新增热点弹窗", () => {
     const { imageId, onClose, onRequestDialog } = setup();
 

@@ -33,6 +33,53 @@ describe("canvas store", () => {
     vi.useRealTimers();
   });
 
+  it("将 JFIF 图片链接识别为图片对象", () => {
+    let node: ReturnType<typeof useCanvasStore.getState>["nodes"][number] | null = null;
+
+    act(() => {
+      node = useCanvasStore.getState().createFromText("https://example.com/reference.jfif", { x: 120, y: 160 });
+    });
+
+    expect(node).toMatchObject({
+      type: "image",
+      mediaPath: "https://example.com/reference.jfif",
+    });
+  });
+
+  it("将 SVG 图片链接识别为图片对象", () => {
+    let node: ReturnType<typeof useCanvasStore.getState>["nodes"][number] | null = null;
+
+    act(() => {
+      node = useCanvasStore.getState().createFromText("https://example.com/vector.svg", { x: 120, y: 160 });
+    });
+
+    expect(node).toMatchObject({
+      type: "image",
+      mediaPath: "https://example.com/vector.svg",
+    });
+  });
+
+  it("创建独立的透明文字对象", () => {
+    let nodeId = "";
+    act(() => {
+      nodeId = useCanvasStore.getState().createNode("text", { x: 220, y: 180 }, {
+        content: "画布上的纯文字",
+      }).id;
+    });
+
+    const node = useCanvasStore.getState().nodes[0];
+    expect(node).toMatchObject({
+      id: nodeId,
+      type: "text",
+      title: "",
+      content: "画布上的纯文字",
+      color: null,
+      width: 360,
+      height: 96,
+    });
+    expect(useCanvasStore.getState().selectedIds).toEqual([nodeId]);
+  });
+
   it("创建并选中便签", () => {
     let nodeId = "";
     act(() => {

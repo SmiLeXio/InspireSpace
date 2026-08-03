@@ -1,4 +1,5 @@
 export type CanvasNodeType =
+  | "text"
   | "note"
   | "sticky"
   | "folder"

@@ -159,6 +159,7 @@ const starterNodes = (): CanvasNode[] => {
 };
 
 const nodeDefaults: Record<CanvasNodeType, { width: number; height: number; title: string; color: string | null }> = {
+  text: { width: 360, height: 96, title: "", color: null },
   note: { width: 390, height: 430, title: "未命名笔记", color: "#fbfbfa" },
   sheet: { width: 390, height: 430, title: "未命名笔记", color: "#fbfbfa" },
   sticky: { width: 300, height: 220, title: "", color: STICKY_COLORS[0].value },
@@ -369,7 +370,7 @@ const externalImportKind = (source: string | File): ImportKind | null => {
   const mime = typeof source === "string" ? "" : source.type.toLowerCase();
   const extension = name.split(/[\\/]/).at(-1)?.split(".").at(-1)?.toLowerCase() || "";
   if (mime.startsWith("video/") || ["mp4", "mov", "webm", "avi", "m4v"].includes(extension)) return "video";
-  if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "tiff", "tif", "bmp", "ico", "icns", "heic", "raw", "exr", "hdr"].includes(extension)) return "image";
+  if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "jfif", "svg", "gif", "webp", "tiff", "tif", "bmp", "ico", "icns", "heic", "raw", "exr", "hdr"].includes(extension)) return "image";
   if (["md", "txt", "rtf", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "json"].includes(extension)
     || mime.startsWith("text/") || mime === "application/pdf" || mime.includes("officedocument")) return "document";
   return null;
@@ -559,7 +560,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     let pathname = "";
     try { pathname = new URL(url).pathname.toLowerCase(); } catch { /* 保留网络卡片 */ }
     const title = (() => { try { return new URL(url).hostname; } catch { return "网络卡片"; } })();
-    if (/\.(png|jpe?g|gif|webp|tiff?|bmp|ico|icns|heic|raw|exr|hdr)$/i.test(pathname)) {
+    if (/\.(png|jpe?g|jfif|svg|gif|webp|tiff?|bmp|ico|icns|heic|raw|exr|hdr)$/i.test(pathname)) {
       return get().createNode("image", point, { title, url, mediaPath: url, mediaName: title });
     }
     if (/\.(mp4|mov|webm|avi)$/i.test(pathname)) {

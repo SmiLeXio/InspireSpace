@@ -35,6 +35,11 @@ export type CanvasDialogRequest =
     label?: string;
     description?: string;
     anchor?: CanvasComposerAnchor;
+  }
+  | {
+    kind: "text";
+    point: { x: number; y: number };
+    anchor?: CanvasComposerAnchor;
   };
 
 interface CanvasCreationDialogProps {
@@ -49,20 +54,24 @@ interface CanvasCreationDialogProps {
     label: string;
     description: string;
   }) => boolean | void;
+  onCreateText: (request: Extract<CanvasDialogRequest, { kind: "text" }>, values: {
+    content: string;
+  }) => boolean | void;
 }
 
 const prefersReducedMotion = () => typeof window.matchMedia === "function"
   && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export function CanvasCreationDialog({ request, onClose, onCreateFolder, onSaveHotspot }: CanvasCreationDialogProps) {
+export function CanvasCreationDialog({ request, onClose, onCreateFolder, onSaveHotspot, onCreateText }: CanvasCreationDialogProps) {
   const rootRef = useRef<HTMLFormElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const composingRef = useRef(false);
   const closingRef = useRef(false);
   const firstDetailsRunRef = useRef(true);
   const isFolder = request.kind === "folder";
-  const [title, setTitle] = useState(isFolder ? "新建文件夹" : request.label || "");
+  const isText = request.kind === "text";
+  const [title, setTitle] = useState(request.kind === "folder" ? "新建文件夹" : request.kind === "hotspot" ? request.label || "" : "");
   const [description, setDescription] = useState(request.kind === "hotspot" ? request.description || "" : "");
   const [folderIcon, setFolderIcon] = useState<FolderIconKey>("folder");
   const [color, setColor] = useState<string>(FOLDER_COLORS[0].value);
@@ -75,7 +84,7 @@ export function CanvasCreationDialog({ request, onClose, onCreateFolder, onSaveH
     const parent = root.offsetParent as HTMLElement | null;
     const parentWidth = parent?.clientWidth || window.innerWidth;
     const parentHeight = parent?.clientHeight || window.innerHeight;
-    const width = root.offsetWidth || (request.kind === "folder" ? 440 : 420);
+    const width = root.offsetWidth || (request.kind === "folder" ? 440 : request.kind === "text" ? 480 : 420);
     const height = Math.max(root.offsetHeight + expandedHeight, 64);
     const edge = 16;
     const gap = 14;
@@ -101,7 +110,7 @@ export function CanvasCreationDialog({ request, onClose, onCreateFolder, onSaveH
   useLayoutEffect(() => {
     closingRef.current = false;
     firstDetailsRunRef.current = true;
-    setTitle(request.kind === "folder" ? "新建文件夹" : request.label || "");
+    setTitle(request.kind === "folder" ? "新建文件夹" : request.kind === "hotspot" ? request.label || "" : "");
     setDescription(request.kind === "hotspot" ? request.description || "" : "");
     setFolderIcon("folder");
     setColor(FOLDER_COLORS[0].value);
@@ -242,15 +251,19 @@ export function CanvasCreationDialog({ request, onClose, onCreateFolder, onSaveH
     if (composingRef.current) return;
     const normalizedTitle = title.trim();
     if (!normalizedTitle) {
-      showError(isFolder ? "请输入文件夹名称" : "请输入热点名称");
+      showError(isFolder ? "请输入文件夹名称" : isText ? "请输入文本内容" : "请输入热点名称");
       return;
     }
 
     const saved = request.kind === "folder"
       ? onCreateFolder(request, { title: normalizedTitle, color, folderIcon })
-      : onSaveHotspot(request, { label: normalizedTitle, description: description.trim() });
+      : request.kind === "text"
+        ? onCreateText(request, { content: normalizedTitle })
+        : onSaveHotspot(request, { label: normalizedTitle, description: description.trim() });
     if (saved === false) {
-      showError(request.kind === "folder" ? "文件夹创建失败，请重试" : "热点未能保存，请重新选择图片后重试");
+      showError(request.kind === "folder"
+        ? "文件夹创建失败，请重试"
+        : request.kind === "text" ? "文本创建失败，请重试" : "热点未能保存，请重新选择图片后重试");
       return;
     }
     closeWithAnimation();
@@ -261,76 +274,105 @@ export function CanvasCreationDialog({ request, onClose, onCreateFolder, onSaveH
   const detailsId = `creation-composer-details-${request.kind}`;
   const helperText = isFolder
     ? request.childIds.length ? `将已选 ${request.childIds.length} 个对象收纳到这个文件夹` : "Enter 创建 · Esc 取消"
-    : request.hotspotId ? "Enter 保存修改 · Esc 取消" : "热点会固定在刚才点击的图片位置";
+    : isText ? "Ctrl/⌘ + Enter 创建 · Esc 取消"
+      : request.hotspotId ? "Enter 保存修改 · Esc 取消" : "热点会固定在刚才点击的图片位置";
+  const eyebrow = isFolder ? "NEW FOLDER" : isText ? "NEW TEXT" : request.hotspotId ? "EDIT HOTSPOT" : "NEW HOTSPOT";
+  const fieldLabel = isFolder ? "名称" : isText ? "文本内容" : "热点名称";
+  const composerKind = isFolder ? "folder" : isText ? "text" : "hotspot";
 
   return (
     <form
       ref={rootRef}
-      className={`creation-composer ${isFolder ? "is-folder-composer" : "is-hotspot-composer"} ${submitError ? "has-error" : ""}`}
+      className={`creation-composer is-${composerKind}-composer ${submitError ? "has-error" : ""}`}
       onSubmit={submit}
       aria-labelledby={titleId}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
       onWheel={(event) => event.stopPropagation()}
     >
-      <span className="creation-composer-eyebrow" id={titleId}>
-        {isFolder ? "NEW FOLDER" : request.hotspotId ? "EDIT HOTSPOT" : "NEW HOTSPOT"}
-      </span>
+      <span className="creation-composer-eyebrow" id={titleId}>{eyebrow}</span>
 
       <div className="creation-composer-primary">
         <div
-          className={`creation-composer-symbol ${isFolder ? "is-folder" : "is-hotspot"}`}
+          className={`creation-composer-symbol is-${composerKind}`}
           style={isFolder ? { "--folder-color": color } as React.CSSProperties : undefined}
           aria-hidden="true"
         >
-          {isFolder ? <FolderGlyph size={18} strokeWidth={1.75} /> : <MousePointer2 size={17} strokeWidth={1.9} />}
+          {isFolder ? <FolderGlyph size={18} strokeWidth={1.75} /> : isText ? <MessageSquareText size={17} strokeWidth={1.9} /> : <MousePointer2 size={17} strokeWidth={1.9} />}
         </div>
 
-        <label className="creation-composer-field">
-          <span className="sr-only">{isFolder ? "名称" : "热点名称"}</span>
-          <input
-            ref={inputRef}
-            value={title}
-            maxLength={48}
-            onChange={(event) => {
-              setTitle(event.target.value);
-              if (submitError) setSubmitError("");
-            }}
-            onCompositionStart={() => { composingRef.current = true; }}
-            onCompositionEnd={() => { composingRef.current = false; }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (composingRef.current || event.nativeEvent.isComposing)) event.preventDefault();
-            }}
-            placeholder={isFolder ? "输入文件夹名称" : "输入热点名称"}
-            aria-label={isFolder ? "名称" : "热点名称"}
-            aria-invalid={Boolean(submitError)}
-            aria-describedby={submitError ? `${titleId}-error` : undefined}
-          />
-          <small>{title.length}/48</small>
+        <label className={`creation-composer-field ${isText ? "is-text-field" : ""}`}>
+          <span className="sr-only">{fieldLabel}</span>
+          {isText ? (
+            <textarea
+              ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+              value={title}
+              maxLength={1200}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                if (submitError) setSubmitError("");
+              }}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !composingRef.current && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder="输入文本信息…"
+              aria-label={fieldLabel}
+              aria-invalid={Boolean(submitError)}
+              aria-describedby={submitError ? `${titleId}-error` : undefined}
+              spellCheck
+            />
+          ) : (
+            <input
+              ref={inputRef as React.RefObject<HTMLInputElement>}
+              value={title}
+              maxLength={48}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                if (submitError) setSubmitError("");
+              }}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (composingRef.current || event.nativeEvent.isComposing)) event.preventDefault();
+              }}
+              placeholder={isFolder ? "输入文件夹名称" : "输入热点名称"}
+              aria-label={fieldLabel}
+              aria-invalid={Boolean(submitError)}
+              aria-describedby={submitError ? `${titleId}-error` : undefined}
+            />
+          )}
+          <small>{title.length}/{isText ? 1200 : 48}</small>
         </label>
 
-        <button
-          className={`creation-composer-tool ${detailsOpen ? "is-active" : ""}`}
-          type="button"
-          onClick={() => setDetailsOpen((open) => !open)}
-          aria-label={isFolder ? "个性设置" : "添加说明"}
-          aria-expanded={detailsOpen}
-          aria-controls={detailsId}
-          title={isFolder ? "图标与颜色" : "补充热点说明"}
-        >
-          {isFolder ? <SlidersHorizontal size={15} /> : <MessageSquareText size={15} />}
-          <ChevronDown className="creation-composer-chevron" size={11} />
-        </button>
+        {!isText ? (
+          <button
+            className={`creation-composer-tool ${detailsOpen ? "is-active" : ""}`}
+            type="button"
+            onClick={() => setDetailsOpen((open) => !open)}
+            aria-label={isFolder ? "个性设置" : "添加说明"}
+            aria-expanded={detailsOpen}
+            aria-controls={detailsId}
+            title={isFolder ? "图标与颜色" : "补充热点说明"}
+          >
+            {isFolder ? <SlidersHorizontal size={15} /> : <MessageSquareText size={15} />}
+            <ChevronDown className="creation-composer-chevron" size={11} />
+          </button>
+        ) : null}
 
         <button className="creation-composer-action is-cancel" type="button" onClick={closeWithAnimation} aria-label="取消">
           <X size={15} />
         </button>
-        <button className="creation-composer-action is-confirm" type="submit" disabled={!title.trim()} aria-label={isFolder ? "创建文件夹" : request.hotspotId ? "保存修改" : "创建热点"}>
+        <button className="creation-composer-action is-confirm" type="submit" disabled={!title.trim()} aria-label={isFolder ? "创建文件夹" : isText ? "创建文本" : request.hotspotId ? "保存修改" : "创建热点"}>
           {isFolder ? <FolderPlus size={15} /> : <Check size={15} />}
         </button>
       </div>
 
-      <div
+      {!isText ? <div
         ref={detailsRef}
         id={detailsId}
         className={`creation-composer-details ${detailsOpen ? "is-open" : ""}`}
@@ -408,7 +450,7 @@ export function CanvasCreationDialog({ request, onClose, onCreateFolder, onSaveH
             </label>
           )}
         </div>
-      </div>
+      </div> : null}
 
       <div className="creation-composer-footer">
         <span className="creation-composer-hint">{helperText}</span>

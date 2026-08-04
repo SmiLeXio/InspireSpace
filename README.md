@@ -1,146 +1,213 @@
-﻿# InspireSpace
+<div align="center">
 
-> Windows 本地优先的无界灵感画布 MVP。
+# ✦ InspireSpace
 
-![InspireSpace MVP](docs/inspirespace-mvp.png)
+**把散落的灵感，放回一个属于你的本地无限画布。**
 
-InspireSpace 根据仓库上层的《Windows Spatial 复刻项目完整交付文档（Vibe Coding AI 直接实现版）》实现，并结合项目根目录中的 5 个参考视频完成了界面与交互重构。产品默认离线运行，不包含账号、遥测、云端接口或自动上传逻辑。
+面向 Windows 的本地优先视觉工作台：在同一空间中组织 Markdown 笔记、便签、纯文本、图片、视频、文档、网页、文件夹与插件。
 
-## 设计方向
+[简体中文](README.md) · [English](README_EN.md)
 
-本版不再使用传统笔记软件的应用框架，而是让内容本身成为界面：
+<p>
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-5B67F1?style=flat-square" />
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square&logo=windows11&logoColor=white" />
+  <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-desktop-000000?style=flat-square&logo=rust&logoColor=white" />
+  <img alt="Local First" src="https://img.shields.io/badge/data-local--first-2E7D32?style=flat-square" />
+</p>
 
-- 无网格、无侧边栏、无详情面板、无常驻顶部操作栏。
-- Tauri 无边框窗口；顶部仅保留透明拖动区域，窗口按钮只在右上角悬停时出现。
-- 浅灰无界空间、白色软阴影卡片、克制的大圆角与留白。
-- 双击空白处才出现临时创建胶囊，操作完成后自动消失。
-- 双击卡片在原位置附近直接编辑，不进入大型模态详情页。
-- 选中、缩放、保存状态与错误提示均采用最低视觉占用。
+[功能概览](#-功能概览) · [立即体验](#-立即体验) · [快捷操作](#-快捷操作) · [开发指南](#-开发指南)
 
-## 当前可用能力
+</div>
 
-- **单无限画布**：鼠标指针中心缩放、右键/空格平移、卡片拖拽和四角缩放。
-- **Sticky 便利贴**：5 种柔和纸张颜色、直接编辑、本地自动保存。
-- **Sheet Markdown 纸张**：标准裸 `.md` 文件、标题和 Markdown 源文本直接编辑。
-- **图片卡片**：从 Windows 文件选择器导入 JPG、PNG、GIF、WebP、BMP、SVG；素材复制到 Vault，数据库只保存路径。
-- **上下文创建**：双击空白画布创建 Note、Sheet 或 Image，不占用永久界面空间。
-- **本地持久化**：SQLite 保存画布元数据和视口；Rust 原子式写入 Markdown。
-- **Windows 桌面壳**：Tauri v2、无边框窗口、系统托盘、托盘恢复/退出。
-- **开发预览降级**：直接运行 Vite 时使用 localStorage；正式桌面版使用 Rust、SQLite 和本地文件系统。
+![InspireSpace 无限画布预览](docs/inspirespace-mvp.png)
 
-## 快捷操作
+> [!IMPORTANT]
+> InspireSpace 目前处于 **0.1.0 早期版本**，主要面向 Windows 桌面端。核心数据默认保存在本地项目目录中；浏览器模式仅用于前端开发预览。
 
-| 操作 | 方式 |
-|---|---|
-| 打开临时创建菜单 | 双击空白画布 |
-| 快速创建 Note | `N` |
-| 快速创建 Sheet | `M` |
-| 快速导入图片 | `I` |
-| 平移画布 | 右键拖拽，或按住 `Space` 后左键拖拽 |
-| 指针中心缩放 | 鼠标滚轮 |
-| 缩放快捷键 | `Ctrl +` / `Ctrl -` |
-| 框住全部卡片 | `Home` |
-| 重置到 100% | `0` |
-| 选择 / 移动卡片 | 单击 / 左键拖拽 |
-| 调整卡片尺寸 | 选中后拖动四角控制点 |
-| 编辑卡片 | 双击卡片 |
-| 删除卡片 | `Delete` / `Backspace` |
-| 关闭编辑器 | `Esc` 或点击卡片外部 |
+## 为什么是 InspireSpace？
 
-## 技术栈
+传统笔记工具要求你先决定“内容应该放在哪”。InspireSpace 更接近真实的思考过程：先把内容放到画布上，再通过位置、大小、堆叠和文件夹逐渐建立关系。
 
-- Tauri v2 / Rust
-- React 18 / TypeScript / Vite
-- Zustand
-- Konva / react-konva
-- 定制 CSS
-- rusqlite（bundled SQLite）
-- Vitest
+| 本地优先 | 空间化组织 | 多内容共存 | 低干扰交互 |
+|---|---|---|---|
+| 无账号、无遥测、无自动上传 | 拖拽、缩放、框选、堆叠与聚焦 | 笔记、媒体、网页、文档、插件同屏 | 极简无边框窗口，工具按需出现 |
 
-## 快速启动
+## ✨ 功能概览
 
-### 安装依赖
+### 项目与工作空间
+
+- **打开 / 新建本地项目**：任意文件夹都可以成为独立灵感空间。
+- **最近项目**：欢迎页保留最近打开记录，快速回到工作现场。
+- **克隆 Git 仓库**：通过浅克隆创建本地项目，适合围绕代码或资料开展视觉整理。
+- **演练空间**：无需准备内容即可体验画布、堆叠、文件夹和缩放操作。
+
+### 无限画布
+
+- 以鼠标指针为中心平滑缩放，支持空格或右键拖动画布。
+- 卡片拖拽、四角缩放、单选、多选与框选。
+- 自动保存画布节点、布局与视口位置。
+- 支持布局操作的撤销 / 恢复，历史上限为 60 步。
+- 一键框住全部内容或重置为 100% 视图。
+
+### 丰富的内容对象
+
+- **Markdown 笔记**：正文保存为项目内标准 `.md` 文件。
+- **便利贴**：5 种纸张配色，适合短想法和临时提醒。
+- **纯文本**：透明背景文字，可直接作为画布标题或标注。
+- **图片**：支持 PNG、JPEG/JFIF、SVG、GIF、WebP、TIFF、BMP、ICO、ICNS、HEIC、RAW、EXR、HDR。
+- **视频**：支持 MP4、MOV、WebM、AVI，以及 GIF / WebP 动图。
+- **文档**：支持 Markdown、TXT、RTF、PDF、Office、CSV、JSON 等常见格式。
+- **网络卡片**：粘贴网页、媒体直链或普通文本，自动识别并生成对应对象。
+- **插件**：内置本地时钟插件，插件模型为后续扩展预留空间。
+
+### 组织与标注
+
+- **智能堆叠**：把多个对象收纳成堆，也可将对象拖到另一张卡片上快速成堆。
+- **堆叠展开与提取**：聚焦查看堆内成员，成员可单独拖出或移入文件夹。
+- **文件夹聚焦**：自定义名称、颜色与图标，在聚焦视图中整理子项。
+- **图片热点**：在图片任意位置添加标题和说明，并集中编辑或删除热点。
+- **自由绘画**：按需启用画笔层，提供笔触、颜色与绘画工具。
+
+### 桌面体验
+
+- Tauri v2 无边框窗口与自定义窗口控制。
+- Windows 系统托盘支持隐藏、恢复与退出。
+- 拖放本地文件到画布即可批量导入。
+- 保存状态与错误提示保持低视觉占用。
+
+## 🚀 立即体验
+
+### 下载 Windows 安装包
+
+仓库内提供当前构建产物：
+
+- [下载 InspireSpace 0.1.0 x64 安装包](release/InspireSpace_0.1.0_x64-setup.exe)
+- [查看 SHA-256 校验值](release/SHA256SUMS.txt)
+
+> 安装包为当前仓库版本的早期构建，建议在重要数据之外先行体验。
+
+### 从源码运行
+
+#### 环境要求
+
+- Windows 10 / 11
+- Node.js 20 或更高版本
+- Rust stable 工具链
+- Tauri v2 的 Windows 构建依赖（Microsoft C++ Build Tools 与 WebView2）
+- Git（仅“克隆 Git 仓库”功能需要）
+
+#### 安装依赖
 
 ```powershell
 npm install
 ```
 
-### 浏览器预览
+#### 浏览器开发预览
 
 ```powershell
 npm run dev
 ```
 
-浏览器预览的数据位于 localStorage，仅用于前端开发。
+浏览器预览会使用 `localStorage` 和浏览器文件能力模拟桌面后端，适合 UI 开发，不代表最终桌面存储行为。
 
-### Windows 桌面开发模式
+#### Windows 桌面开发模式
 
 ```powershell
 npm run tauri -- dev
 ```
 
-### 构建应用
-
-仅生成调试可执行文件：
+#### 构建应用
 
 ```powershell
+# 仅生成调试可执行文件
 npm run tauri -- build --debug --no-bundle
-```
 
-生成 NSIS 安装包：
-
-```powershell
+# 生成 Release 可执行文件与 NSIS 安装包
 npm run tauri -- build
 ```
 
-主要产物：
+## ⌨️ 快捷操作
+
+| 操作 | 快捷键 / 手势 |
+|---|---|
+| 打开画布菜单 | 右键空白处 |
+| 平移画布 | 右键拖拽，或按住 `Space` 后左键拖拽 |
+| 锁定 / 解除手型模式 | 快速轻按 `Space` |
+| 指针中心缩放 | 鼠标滚轮 |
+| 选择 / 移动对象 | 单击 / 左键拖拽 |
+| 多选对象 | `Ctrl` / `Cmd` + 单击，或拖拽框选 |
+| 调整对象尺寸 | 选中后拖动四角控制点 |
+| 编辑对象 | 双击对象 |
+| 新建 Markdown 笔记 | `N` |
+| 新建便签 | `S` |
+| 新建文件夹 | `F` |
+| 新建网络卡片 | `W` |
+| 撤销 | `Ctrl + Z` |
+| 恢复 | `Ctrl + Y` 或 `Ctrl + Shift + Z` |
+| 框住全部内容 | `Home` |
+| 重置为 100% | `0` |
+| 删除已选对象 | `Delete` / `Backspace` |
+| 关闭菜单 / 取消选择 / 收起堆叠 | `Esc` |
+
+## 🔒 本地数据与隐私
+
+桌面版中的每个项目都有独立目录：
 
 ```text
-release/InspireSpace_0.1.0_x64-setup.exe
-src-tauri/target/debug/inspirespace.exe
-src-tauri/target/release/inspirespace.exe
-src-tauri/target/release/bundle/nsis/InspireSpace_0.1.0_x64-setup.exe
+Your Project/
+├── notes/                       # Markdown 正文
+├── media/                       # 导入的图片、视频与文档副本
+├── cache/                       # 缓存预留目录
+└── .inspirespace/
+    └── metadata.sqlite3         # 节点、布局、视口、堆叠与热点元数据
 ```
 
-## 默认本地数据结构
+数据原则：
 
-首次启动桌面版会初始化：
+- Markdown 正文写入标准文件，不锁定在私有数据库格式中。
+- 媒体文件独立保存，SQLite 仅记录引用路径与画布元数据。
+- 应用不包含账号、遥测、云端同步或自动上传逻辑。
+- 可通过普通文件工具备份、迁移或版本管理整个项目目录。
 
-```text
-%USERPROFILE%\Documents\InspireSpace Vault\
-├── notes\                       # Sheet 标准 Markdown 文件
-├── media\                       # UUID 命名的本地素材副本
-├── cache\                       # 缩略图缓存预留目录
-└── .inspirespace\
-    └── metadata.sqlite3         # 节点、位置、尺寸、视口等元数据
-```
-
-数据约束：
-
-- Sheet 正文只写入 `notes/*.md`，不会以私有文本格式锁入数据库。
-- 图片不会以 Base64 存入 SQLite/JSON；媒体独立保存，节点只引用文件路径。
-- Sticky 作为短灵感保存在 SQLite 元数据中。
-
-## 工程结构
+## 🧱 技术架构
 
 ```text
 InspireSpace/
 ├── src/
-│   ├── components/canvas/       # 无限画布与三类卡片
-│   ├── components/editor/       # 卡片附近的直接编辑器
-│   ├── components/shell/        # 极简应用壳与无边框窗口控制
-│   ├── lib/backend.ts           # Tauri IPC / 浏览器降级适配器
-│   ├── store/useCanvasStore.ts  # Zustand 状态、本地保存和默认构图
+│   ├── components/canvas/       # 无限画布、对象、堆叠、文件夹、绘画层
+│   ├── components/editor/       # 卡片就地编辑器
+│   ├── components/shell/        # 欢迎页、项目创建与桌面窗口壳
+│   ├── lib/backend.ts           # Tauri IPC 与浏览器降级适配
+│   ├── store/useCanvasStore.ts  # Zustand 状态、历史记录与持久化调度
 │   └── types/canvas.ts          # 共享领域类型
 ├── src-tauri/
+│   ├── src/commands.rs          # Tauri 命令与 Git 克隆
 │   ├── src/database.rs          # SQLite 模型与迁移
-│   ├── src/workspace.rs         # Vault、Markdown、媒体文件管理
-│   ├── src/commands.rs          # Tauri 命令
-│   └── src/lib.rs               # 桌面应用、托盘和窗口生命周期
-└── docs/                        # 截图与实施计划
+│   ├── src/workspace.rs         # 项目、Markdown 与媒体文件管理
+│   └── src/lib.rs               # 桌面窗口、托盘和生命周期
+├── docs/                        # 截图与设计 / 实施文档
+└── release/                     # Windows 安装包与校验文件
 ```
 
-## 验证命令
+**核心技术：** Tauri 2 · Rust · React 18 · TypeScript · Vite · Zustand · Konva · GSAP · Drawesome · SQLite · Vitest
+
+## 🛠️ 开发指南
+
+### 常用命令
+
+| 命令 | 用途 |
+|---|---|
+| `npm run dev` | 启动 Vite 浏览器预览 |
+| `npm run check` | 执行 TypeScript 类型检查 |
+| `npm test` | 运行 Vitest 测试 |
+| `npm run build` | 构建前端生产资源 |
+| `npm run tauri -- dev` | 启动桌面开发模式 |
+| `npm run tauri -- build` | 构建 Windows 安装包 |
+
+### 完整验证
 
 ```powershell
 npm run check
@@ -148,10 +215,20 @@ npm test
 npm run build
 cargo fmt --all -- --check --manifest-path src-tauri/Cargo.toml
 cargo check --manifest-path src-tauri/Cargo.toml
-npm run tauri -- build --debug --no-bundle
-npm run tauri -- build
 ```
 
-## MVP 边界
+## 🗺️ 项目状态
 
-本版刻意不提前实现阶段 2–4：多 Vault、Stacks、图层面板、全局 Scratch Pad、全文搜索、标签、网页剪藏、视频/RAW、撤销重做、OneDrive 同步和备份导出。当前代码结构为后续模块保留扩展位置。
+InspireSpace 仍处于快速迭代阶段。当前版本已经覆盖项目管理、无限画布、多类型对象、堆叠、文件夹、热点、绘画与本地持久化等核心体验；后续将继续完善搜索、标签、备份导出、更多插件、更完整的媒体能力与跨设备工作流。
+
+如果你发现问题或有功能建议，欢迎通过 [GitHub Issues](https://github.com/SmiLeXio/InspireSpace/issues) 参与讨论。
+
+---
+
+<div align="center">
+
+**InspireSpace — Think spatially. Keep it locally.**
+
+[返回顶部](#-inspirespace) · [English README](README_EN.md)
+
+</div>

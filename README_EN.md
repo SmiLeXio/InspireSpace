@@ -22,7 +22,9 @@ A local-first visual workspace for Windows where Markdown notes, sticky notes, t
 
 </div>
 
-![InspireSpace infinite canvas preview](docs/inspirespace-mvp.png)
+[![InspireSpace welcome screen](docs/screenshots/home.jpg)](docs/首屏.png)
+
+[![InspireSpace infinite canvas](docs/screenshots/canvas.jpg)](docs/内部页面.png)
 
 > [!IMPORTANT]
 > InspireSpace is currently an **early 0.1.0 release** focused on Windows desktop. Core data is stored in local project folders by default. Browser mode is intended for frontend development and preview only.

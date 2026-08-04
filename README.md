@@ -22,8 +22,9 @@
 
 </div>
 
-![InspireSpace 无限画布预览](docs/首屏.png)
-![InspireSpace 无限画布预览](docs/内部页面.png)
+[![InspireSpace 欢迎页预览](docs/screenshots/home.jpg)](docs/首屏.png)
+
+[![InspireSpace 无限画布预览](docs/screenshots/canvas.jpg)](docs/内部页面.png)
 
 > [!IMPORTANT]
 > InspireSpace 目前处于 **0.1.0 早期版本**，主要面向 Windows 桌面端。核心数据默认保存在本地项目目录中；浏览器模式仅用于前端开发预览。
